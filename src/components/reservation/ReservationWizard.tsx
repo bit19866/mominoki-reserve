@@ -115,6 +115,7 @@ export default function ReservationWizard({ menus, staff, settings, user, profil
           selected={reservation.staff}
           onSelect={(s) => { updateReservation({ staff: s }); goNext() }}
           onBack={goBack}
+          date={reservation.date!}
         />
       )}
       {step === 3 && (

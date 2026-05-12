@@ -4,10 +4,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { href: '/admin', label: 'スケジュール', icon: '📅' },
-  { href: '/admin/menus', label: 'メニュー管理', icon: '📋' },
-  { href: '/admin/staff', label: 'スタッフ管理', icon: '👥' },
-  { href: '/admin/settings', label: '設定', icon: '⚙️' },
+  { href: '/admin',            label: 'スケジュール', icon: '📅' },
+  { href: '/admin/shifts',     label: 'シフト管理',   icon: '🗓️' },
+  { href: '/admin/analytics',  label: '集計・分析',   icon: '📊' },
+  { href: '/admin/menus',      label: 'メニュー管理', icon: '📋' },
+  { href: '/admin/staff',      label: 'スタッフ管理', icon: '👥' },
+  { href: '/admin/settings',   label: '設定',         icon: '⚙️' },
 ]
 
 export default function AdminNav() {

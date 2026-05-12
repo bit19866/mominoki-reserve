@@ -4,13 +4,23 @@ import { useState } from 'react'
 import { Staff } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import WeeklyScheduleEditor from './WeeklyScheduleEditor'
 
 const STAFF_ICONS = ['🌸', '🌿', '🍀', '🌺', '🌻', '🌼', '🌷', '🌹', '🪷']
 
-export default function StaffManager({ initialStaff }: { initialStaff: Staff[] }) {
+interface Props {
+  initialStaff: Staff[]
+  defaultStart: string
+  defaultEnd: string
+}
+
+export default function StaffManager({ initialStaff, defaultStart, defaultEnd }: Props) {
   const [staff, setStaff] = useState(initialStaff)
   const [newName, setNewName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [openShiftId, setOpenShiftId] = useState<string | null>(null)
   const supabase = createClient()
   const router = useRouter()
 
@@ -52,81 +62,104 @@ export default function StaffManager({ initialStaff }: { initialStaff: Staff[] }
     }
   }
 
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState('')
-
   return (
-    <div className="max-w-lg">
+    <div className="max-w-2xl">
       {/* スタッフ一覧 */}
       <div className="card overflow-hidden mb-6">
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-          <p className="text-sm font-medium text-gray-700">登録スタッフ（{staff.length}名）</p>
+          <p className="text-sm font-medium text-gray-700">
+            登録スタッフ（{staff.length}名）
+          </p>
         </div>
         <ul className="divide-y divide-gray-100">
           {staff.map((s, i) => (
-            <li key={s.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
-              <span className="text-2xl">{STAFF_ICONS[i % STAFF_ICONS.length]}</span>
-
-              {editingId === s.id ? (
-                <input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleRename(s.id, editName)
-                      setEditingId(null)
-                    }
-                    if (e.key === 'Escape') setEditingId(null)
-                  }}
-                  className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
-                  autoFocus
-                />
-              ) : (
-                <span className="flex-1 font-medium text-gray-900">{s.name}</span>
-              )}
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleToggleActive(s.id, !s.active)}
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    s.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {s.active ? '勤務中' : '休止'}
-                </button>
+            <li key={s.id}>
+              {/* スタッフ行 */}
+              <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
+                <span className="text-2xl">{STAFF_ICONS[i % STAFF_ICONS.length]}</span>
 
                 {editingId === s.id ? (
-                  <>
-                    <button
-                      onClick={() => { handleRename(s.id, editName); setEditingId(null) }}
-                      className="text-xs text-green-600 hover:underline"
-                    >
-                      保存
-                    </button>
-                    <button
-                      onClick={() => setEditingId(null)}
-                      className="text-xs text-gray-400 hover:underline"
-                    >
-                      取消
-                    </button>
-                  </>
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { handleRename(s.id, editName); setEditingId(null) }
+                      if (e.key === 'Escape') setEditingId(null)
+                    }}
+                    className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+                    autoFocus
+                  />
                 ) : (
-                  <>
-                    <button
-                      onClick={() => { setEditingId(s.id); setEditName(s.name) }}
-                      className="text-xs text-blue-600 hover:underline"
-                    >
-                      名前変更
-                    </button>
-                    <button
-                      onClick={() => handleDelete(s.id)}
-                      className="text-xs text-red-500 hover:underline"
-                    >
-                      削除
-                    </button>
-                  </>
+                  <span className="flex-1 font-medium text-gray-900">{s.name}</span>
                 )}
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* 勤務状態 */}
+                  <button
+                    onClick={() => handleToggleActive(s.id, !s.active)}
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      s.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {s.active ? '在籍中' : '休止'}
+                  </button>
+
+                  {/* シフト設定ボタン */}
+                  <button
+                    onClick={() => setOpenShiftId(openShiftId === s.id ? null : s.id)}
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium border transition-colors ${
+                      openShiftId === s.id
+                        ? 'bg-pink-600 text-white border-pink-600'
+                        : 'border-gray-200 text-gray-500 hover:border-pink-300 hover:text-pink-600'
+                    }`}
+                  >
+                    📅 シフト
+                  </button>
+
+                  {editingId === s.id ? (
+                    <>
+                      <button
+                        onClick={() => { handleRename(s.id, editName); setEditingId(null) }}
+                        className="text-xs text-green-600 hover:underline"
+                      >
+                        保存
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="text-xs text-gray-400 hover:underline"
+                      >
+                        取消
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => { setEditingId(s.id); setEditName(s.name) }}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        名前変更
+                      </button>
+                      <button
+                        onClick={() => handleDelete(s.id)}
+                        className="text-xs text-red-500 hover:underline"
+                      >
+                        削除
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
+
+              {/* 週間シフトエディタ（開いているときだけ表示） */}
+              {openShiftId === s.id && (
+                <div className="px-4 pb-4">
+                  <WeeklyScheduleEditor
+                    staff={s}
+                    defaultStart={defaultStart}
+                    defaultEnd={defaultEnd}
+                  />
+                </div>
+              )}
             </li>
           ))}
         </ul>

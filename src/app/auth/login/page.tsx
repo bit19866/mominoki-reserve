@@ -9,8 +9,10 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const redirectTo = searchParams.get('redirectTo') || '/'
-  const [loading, setLoading] = useState<'google' | 'apple' | null>(null)
+  const [loading, setLoading] = useState<'google' | 'apple' | 'email' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
 
   const handleGoogleLogin = async () => {
     setLoading('google')
@@ -42,6 +44,50 @@ function LoginForm() {
     }
   }
 
+  const handleEmailLogin = async () => {
+    if (!email) return
+    setLoading('email')
+    setError(null)
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+      },
+    })
+    if (error) {
+      setError(error.message)
+      setLoading(null)
+    } else {
+      setEmailSent(true)
+      setLoading(null)
+    }
+  }
+
+  if (emailSent) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-rose-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="card p-8 text-center">
+            <div className="text-5xl mb-4">📧</div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">メールを送信しました</h2>
+            <p className="text-gray-600 text-sm mb-4">
+              <strong>{email}</strong> にログインリンクを送信しました。
+            </p>
+            <p className="text-gray-500 text-sm">
+              メールを開いてリンクをクリックするとログインできます。
+            </p>
+            <button
+              onClick={() => setEmailSent(false)}
+              className="mt-6 text-pink-600 text-sm hover:underline"
+            >
+              別のメールアドレスで試す
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 to-rose-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -59,7 +105,7 @@ function LoginForm() {
           <h2 className="text-lg font-bold text-center text-gray-800 mb-2">
             ログイン / 新規登録
           </h2>
-          <p className="text-center text-sm text-gray-500 mb-8">
+          <p className="text-center text-sm text-gray-500 mb-6">
             ご予約にはアカウントが必要です
           </p>
 
@@ -70,6 +116,35 @@ function LoginForm() {
           )}
 
           <div className="space-y-3">
+            {/* メールログイン */}
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <p className="text-xs text-gray-500 mb-2 font-medium">📧 メールアドレスでログイン</p>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@gmail.com"
+                className="input-field text-sm mb-2"
+                onKeyDown={(e) => e.key === 'Enter' && handleEmailLogin()}
+              />
+              <button
+                onClick={handleEmailLogin}
+                disabled={loading !== null || !email}
+                className="w-full bg-pink-600 hover:bg-pink-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-60 text-sm"
+              >
+                {loading === 'email' ? 'メール送信中...' : 'ログインリンクを送信'}
+              </button>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs text-gray-400">
+                <span className="bg-white px-3">または</span>
+              </div>
+            </div>
+
             {/* Googleログイン */}
             <button
               onClick={handleGoogleLogin}

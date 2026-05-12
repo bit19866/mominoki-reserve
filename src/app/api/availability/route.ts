@@ -48,13 +48,38 @@ export async function GET(request: NextRequest) {
 
   const { data: existingReservations } = await reservationQuery
 
-  // スタッフ一覧取得
+  // スタッフ一覧取得（休みのスタッフを除外）
   const { data: allStaff } = await supabase
     .from('staff')
     .select('id')
     .eq('active', true)
 
-  const staffIds = staffId ? [staffId] : (allStaff || []).map((s) => s.id)
+  const { data: dayOffs } = await supabase
+    .from('staff_day_offs')
+    .select('staff_id')
+    .eq('off_date', date)
+
+  const offStaffIdSet = new Set((dayOffs || []).map((d) => d.staff_id))
+
+  // 指定スタッフが休みの場合はエラー
+  if (staffId && offStaffIdSet.has(staffId)) {
+    return NextResponse.json({ slots: [], error: 'このスタッフは本日休みです' })
+  }
+
+  const staffIds = staffId
+    ? [staffId]
+    : (allStaff || []).filter((s) => !offStaffIdSet.has(s.id)).map((s) => s.id)
+
+  // シフト時間を取得（スタッフごとの出勤時間）
+  const shiftRes = await fetch(
+    `${process.env.NEXT_PUBLIC_APP_URL}/api/shift-hours?date=${date}`,
+    { cache: 'no-store' }
+  )
+  const shiftData = await shiftRes.json()
+  const shiftMap: Record<string, { startTime: string; endTime: string; isWorking: boolean }> = {}
+  for (const s of shiftData.shiftInfo || []) {
+    shiftMap[s.staffId] = { startTime: s.startTime, endTime: s.endTime, isWorking: s.isWorking }
+  }
 
   // 全予約取得（ベッド数制限チェック用）
   const { data: allReservationsForDate } = await supabase
@@ -97,14 +122,30 @@ export async function GET(request: NextRequest) {
     // 指定スタッフが空いているかチェック
     let staffAvailable = true
     if (staffId) {
-      const conflicting = (existingReservations || []).some((r) => {
-        const rStart = timeToMinutes(String(r.start_time).slice(0, 5))
-        const rEnd = timeToMinutes(String(r.end_time).slice(0, 5))
-        return rStart < minutes + menu.duration_minutes && rEnd > minutes
-      })
-      if (conflicting) staffAvailable = false
+      // シフト時間チェック
+      const shift = shiftMap[staffId]
+      if (shift) {
+        if (!shift.isWorking) {
+          staffAvailable = false
+        } else {
+          const shiftStart = timeToMinutes(shift.startTime)
+          const shiftEnd = timeToMinutes(shift.endTime)
+          if (minutes < shiftStart || minutes + menu.duration_minutes > shiftEnd) {
+            staffAvailable = false
+          }
+        }
+      }
+
+      if (staffAvailable) {
+        const conflicting = (existingReservations || []).some((r) => {
+          const rStart = timeToMinutes(String(r.start_time).slice(0, 5))
+          const rEnd = timeToMinutes(String(r.end_time).slice(0, 5))
+          return rStart < minutes + menu.duration_minutes && rEnd > minutes
+        })
+        if (conflicting) staffAvailable = false
+      }
     } else {
-      // おまかせ：全スタッフの空き確認
+      // おまかせ：シフト時間内・空きスタッフの確認
       const busyStaffIds = new Set<string>()
       ;(allReservationsForDate || []).forEach((r) => {
         const rStart = timeToMinutes(String(r.start_time).slice(0, 5))
@@ -113,7 +154,16 @@ export async function GET(request: NextRequest) {
           busyStaffIds.add(r.staff_id)
         }
       })
-      const availableStaffCount = staffIds.filter((id) => !busyStaffIds.has(id)).length
+      // シフト時間内かつ空きのスタッフ数を確認
+      const availableStaffCount = staffIds.filter((id) => {
+        if (busyStaffIds.has(id)) return false
+        const shift = shiftMap[id]
+        if (!shift) return true
+        if (!shift.isWorking) return false
+        const shiftStart = timeToMinutes(shift.startTime)
+        const shiftEnd = timeToMinutes(shift.endTime)
+        return minutes >= shiftStart && minutes + menu.duration_minutes <= shiftEnd
+      }).length
       if (availableStaffCount === 0) staffAvailable = false
     }
 
