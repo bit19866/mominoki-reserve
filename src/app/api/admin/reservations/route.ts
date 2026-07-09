@@ -4,6 +4,8 @@ import { timeToMinutes } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any
 
   // 管理者チェック
   const { data: { user } } = await supabase.auth.getUser()
@@ -29,7 +31,9 @@ export async function POST(request: NextRequest) {
     customerName,
     gender,
     notes,
-    source, // 'phone' | 'walkin'
+    source,          // 'phone' | 'walkin'
+    isNewCustomer,   // boolean | null
+    ageGroup,        // string | null
   } = body
 
   // 必須チェック
@@ -55,8 +59,8 @@ export async function POST(request: NextRequest) {
   }
 
   // ベッド数チェック
-  const { data: settings } = await supabase.from('settings').select('*')
-  const settingsMap = Object.fromEntries((settings || []).map((s) => [s.key, s.value]))
+  const { data: settings } = await db.from('settings').select('*')
+  const settingsMap = Object.fromEntries(((settings || []) as any[]).map((s: any) => [s.key, s.value]))
   const totalBeds = parseInt(settingsMap['total_beds'] || '5')
 
   const { data: overlapping } = await supabase
@@ -72,7 +76,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 予約作成（user_idなし・管理者手入力）
-  const { data: reservation, error } = await supabase
+  const { data: reservation, error } = await db
     .from('reservations')
     .insert({
       user_id: null,
@@ -81,11 +85,13 @@ export async function POST(request: NextRequest) {
       reservation_date: reservationDate,
       start_time: startTime,
       end_time: endTime,
-      status: 'confirmed',
-      customer_name: customerName,
-      gender: gender || null,
-      notes: notes || null,
-      source: source || 'phone',
+      status:           'confirmed',
+      customer_name:    customerName,
+      gender:           gender || null,
+      notes:            notes || null,
+      source:           source || 'phone',
+      is_new_customer:  isNewCustomer ?? null,
+      age_group:        ageGroup || null,
     })
     .select()
     .single()

@@ -18,23 +18,18 @@ export default async function AdminShiftsPage({ searchParams }: PageProps) {
   const lastDay = new Date(year, month, 0).getDate()
   const lastDayStr = `${monthStr}-${String(lastDay).padStart(2, '0')}`
 
-  const [
-    { data: staff },
-    { data: overrides },
-    { data: weeklySchedules },
-    { data: settings },
-  ] = await Promise.all([
+  const [r0, r1, r2, r3] = await Promise.all([
     supabase.from('staff').select('*').eq('active', true).order('sort_order'),
-    supabase
-      .from('staff_schedule_overrides')
-      .select('*')
-      .gte('override_date', firstDay)
-      .lte('override_date', lastDayStr),
+    supabase.from('staff_schedule_overrides').select('*').gte('override_date', firstDay).lte('override_date', lastDayStr),
     supabase.from('staff_weekly_schedule').select('*'),
     supabase.from('settings').select('*'),
   ])
+  const staff           = (r0.data || []) as any[]
+  const overrides       = (r1.data || []) as any[]
+  const weeklySchedules = (r2.data || []) as any[]
+  const settings        = (r3.data || []) as any[]
 
-  const settingsMap = Object.fromEntries((settings || []).map((s) => [s.key, s.value]))
+  const settingsMap = Object.fromEntries(settings.map((s: any) => [s.key, s.value]))
   const defaultStart = settingsMap['business_start_time'] || '10:00'
   const defaultEnd = settingsMap['last_checkin_time'] || '23:00'
 

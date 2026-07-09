@@ -12,8 +12,11 @@ export async function GET(request: NextRequest) {
     .from('admin_users').select('user_id').eq('user_id', user.id).single()
   if (!adminUser) return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 })
 
-  const period = (new URL(request.url).searchParams.get('period') || 'month') as Period
-  const data = await computeAnalytics(supabase, period)
+  const params  = new URL(request.url).searchParams
+  const period  = (params.get('period') || 'month') as Period
+  const dateStr = params.get('date')  // 例: '2026-03-01'
+  const refDate = dateStr ? new Date(dateStr) : undefined
+  const data = await computeAnalytics(supabase, period, refDate)
 
   return NextResponse.json(data)
 }

@@ -25,6 +25,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Menu not found' }, { status: 404 })
   }
 
+  // 店舗休業日チェック
+  const { data: holiday } = await supabase
+    .from('store_holidays')
+    .select('id')
+    .eq('holiday_date', date)
+    .maybeSingle()
+
+  if (holiday) {
+    return NextResponse.json({ slots: [], closed: true })
+  }
+
   // 設定取得
   const { data: settings } = await supabase.from('settings').select('*')
   const settingsMap = Object.fromEntries((settings || []).map((s) => [s.key, s.value]))
@@ -94,8 +105,8 @@ export async function GET(request: NextRequest) {
   const endSlotMinutes = lastCheckinMinutes // 最終受付時間まで
 
   const now = new Date()
-  const reservationDate = new Date(date)
-  const isToday = reservationDate.toDateString() === now.toDateString()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const isToday = date === todayStr
 
   const slots: { time: string; endTime: string; available: boolean }[] = []
 
@@ -107,14 +118,11 @@ export async function GET(request: NextRequest) {
     const slotTime = minutesToTime(minutes)
     const slotEndTime = minutesToTime(minutes + menu.duration_minutes)
 
-    // 締め切り時間チェック
+    // 締め切り時間チェック（タイムゾーン問題を避けるため分単位で比較）
     let isCutoffPassed = false
     if (isToday) {
-      const slotDateTime = new Date(date)
-      const [h, m] = slotTime.split(':').map(Number)
-      slotDateTime.setHours(h, m, 0, 0)
-      const cutoffDateTime = new Date(slotDateTime.getTime() - cutoffMinutes * 60 * 1000)
-      if (cutoffDateTime <= now) {
+      const nowMinutes = now.getHours() * 60 + now.getMinutes()
+      if (minutes <= nowMinutes + cutoffMinutes) {
         isCutoffPassed = true
       }
     }

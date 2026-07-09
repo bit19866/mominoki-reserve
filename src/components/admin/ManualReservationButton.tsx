@@ -23,9 +23,10 @@ export default function ManualReservationButton({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-sm font-bold rounded-xl shadow transition-colors"
+        className="flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
       >
-        ＋ 手動予約
+        <span style={{ fontSize: 15, lineHeight: 1 }}>＋</span>
+        手動予約
       </button>
 
       {open && (

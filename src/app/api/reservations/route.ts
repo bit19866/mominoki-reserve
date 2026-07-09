@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     customerName,
     customerEmail,
     customerPhone,
+    paymentMethod,
   } = body
 
   if (userId !== user.id) {
@@ -137,6 +138,7 @@ export async function POST(request: NextRequest) {
       customer_name: customerName,
       customer_email: customerEmail,
       customer_phone: customerPhone || null,
+      payment_method: paymentMethod === 'online' ? 'online' : 'cash',
     })
     .select()
     .single()

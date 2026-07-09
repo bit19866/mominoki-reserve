@@ -23,6 +23,7 @@ export default function StepConfirm({
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online'>('cash')
 
   const totalPrice =
     (reservation.menu?.price || 0) + (reservation.staff ? 1650 : 0)
@@ -49,6 +50,7 @@ export default function StepConfirm({
           customerName: reservation.customerName,
           customerEmail: userEmail,
           customerPhone: reservation.customerPhone,
+          paymentMethod,
         }),
       })
 
@@ -106,6 +108,48 @@ export default function StepConfirm({
             <dd className="font-bold text-pink-600 text-base">{formatPrice(totalPrice)}</dd>
           </div>
         </dl>
+      </div>
+
+      {/* お支払い方法 */}
+      <div className="card p-5 mb-5">
+        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">お支払い方法</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setPaymentMethod('cash')}
+            className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
+              paymentMethod === 'cash'
+                ? 'border-pink-500 bg-pink-50 text-pink-700'
+                : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
+            </svg>
+            <span className="text-sm font-bold">店頭現金払い</span>
+            <span className="text-xs">当日お支払い</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaymentMethod('online')}
+            className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all ${
+              paymentMethod === 'online'
+                ? 'border-pink-500 bg-pink-50 text-pink-700'
+                : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+            </svg>
+            <span className="text-sm font-bold">ネット決済</span>
+            <span className="text-xs">準備中</span>
+          </button>
+        </div>
+        {paymentMethod === 'online' && (
+          <p className="mt-3 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            ※ ネット決済は現在準備中です。ご予約は受け付けますが、お支払いは当日店頭にてお願いします。
+          </p>
+        )}
       </div>
 
       {/* お客様情報 */}

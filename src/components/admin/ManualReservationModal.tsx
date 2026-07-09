@@ -13,22 +13,26 @@ interface Props {
   lastCheckin: string
   slotInterval: number
   onClose: () => void
+  initialStaffId?: string
+  initialStartTime?: string
 }
 
 export default function ManualReservationModal({
   staff, menus, targetDate,
   businessStart, lastCheckin, slotInterval,
-  onClose,
+  onClose, initialStaffId, initialStartTime,
 }: Props) {
   const router = useRouter()
   const [form, setForm] = useState({
-    staffId: '',
-    menuId: '',
-    startTime: '',
-    customerName: '',
-    gender: '' as '' | 'male' | 'female' | 'other',
-    notes: '',
-    source: 'phone' as 'phone' | 'walkin',
+    staffId:       initialStaffId || '',
+    menuId:        '',
+    startTime:     initialStartTime || '',
+    customerName:  '',
+    gender:        '' as '' | 'male' | 'female' | 'other',
+    notes:         '',
+    source:        'phone' as 'phone' | 'walkin',
+    isNewCustomer: null as null | boolean,
+    ageGroup:      '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -78,15 +82,17 @@ export default function ManualReservationModal({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        staffId: form.staffId,
-        menuId: form.menuId,
+        staffId:         form.staffId,
+        menuId:          form.menuId,
         reservationDate: targetDate,
-        startTime: form.startTime,
+        startTime:       form.startTime,
         endTime,
-        customerName: form.customerName,
-        gender: form.gender || null,
-        notes: form.notes,
-        source: form.source,
+        customerName:    form.customerName,
+        gender:          form.gender || null,
+        notes:           form.notes,
+        source:          form.source,
+        isNewCustomer:   form.isNewCustomer,
+        ageGroup:        form.ageGroup || null,
       }),
     })
 
@@ -184,7 +190,7 @@ export default function ManualReservationModal({
             </label>
             <select
               value={form.menuId}
-              onChange={(e) => setForm((f) => ({ ...f, menuId: e.target.value, startTime: '' }))}
+              onChange={(e) => setForm((f) => ({ ...f, menuId: e.target.value }))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
             >
               <option value="">コースを選択してください</option>
@@ -261,6 +267,51 @@ export default function ManualReservationModal({
                   }`}
                 >
                   {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 新規 / リピーター */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">新規 / リピーター</label>
+            <div className="flex gap-2">
+              {([
+                { value: true,  label: '新規',      color: 'bg-blue-600'  },
+                { value: false, label: 'リピーター', color: 'bg-green-600' },
+              ] as const).map(({ value, label, color }) => (
+                <button
+                  key={String(value)}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, isNewCustomer: f.isNewCustomer === value ? null : value }))}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    form.isNewCustomer === value
+                      ? `${color} text-white`
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 年代 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">年代</label>
+            <div className="grid grid-cols-3 gap-2">
+              {['10代', '20代', '30代', '40代', '50代', '60代以上'].map(group => (
+                <button
+                  key={group}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, ageGroup: f.ageGroup === group ? '' : group }))}
+                  className={`py-2 rounded-lg text-sm font-medium transition-colors ${
+                    form.ageGroup === group
+                      ? 'bg-pink-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {group}
                 </button>
               ))}
             </div>
