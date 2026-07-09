@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isAfter } from 'date-fns'
+import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土']
@@ -102,18 +102,8 @@ export default function DateNavigation({ currentDate }: { currentDate: string })
                 {format(calMonth, 'yyyy年M月', { locale: ja })}
               </span>
               <button
-                onClick={() => {
-                  const next = addMonths(calMonth, 1)
-                  // 未来月には行かせない（今月まで）
-                  const nowMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-                  if (!isAfter(next, nowMonth)) setCalMonth(next)
-                }}
-                className={`w-7 h-7 flex items-center justify-center rounded-lg font-bold transition-colors ${
-                  isSameMonth(calMonth, new Date())
-                    ? 'text-gray-300 cursor-not-allowed'
-                    : 'hover:bg-gray-100 text-gray-600'
-                }`}
-                disabled={isSameMonth(calMonth, new Date())}
+                onClick={() => setCalMonth(m => addMonths(m, 1))}
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-600 font-bold"
               >›</button>
             </div>
 
@@ -135,22 +125,18 @@ export default function DateNavigation({ currentDate }: { currentDate: string })
                 const dateStr    = format(day, 'yyyy-MM-dd')
                 const isSelected = dateStr === currentDate
                 const isTodayDay = dateStr === today
-                const isFuture   = isAfter(day, new Date())
                 const dow        = day.getDay()
 
                 return (
                   <button
                     key={dateStr}
-                    onClick={() => !isFuture && navigate(dateStr)}
-                    disabled={isFuture}
+                    onClick={() => navigate(dateStr)}
                     className={`
                       w-full aspect-square flex items-center justify-center rounded-lg text-xs font-medium transition-colors
                       ${isSelected
                         ? 'bg-gray-800 text-white font-bold'
                         : isTodayDay
                         ? 'bg-blue-50 text-blue-600 font-bold border border-blue-200'
-                        : isFuture
-                        ? 'text-gray-300 cursor-not-allowed'
                         : dow === 0
                         ? 'text-red-500 hover:bg-red-50'
                         : dow === 6
