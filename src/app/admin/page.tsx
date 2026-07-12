@@ -187,7 +187,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
       </div>
 
       {/* ── 断り記録バー ── */}
-      <QuickRefusalBar targetDate={targetDate} initialRefusals={refusals} />
+      <QuickRefusalBar key={targetDate} targetDate={targetDate} initialRefusals={refusals} />
 
       {/* ── スケジュールグリッド ── */}
       <ScheduleGrid
