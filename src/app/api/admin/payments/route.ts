@@ -82,12 +82,14 @@ export async function GET(request: NextRequest) {
   if (!await checkAdmin(supabase)) return NextResponse.json({ error: '権限がありません' }, { status: 403 })
 
   const { searchParams } = new URL(request.url)
-  const from = searchParams.get('from')
-  const to   = searchParams.get('to')
+  const from            = searchParams.get('from')
+  const to              = searchParams.get('to')
+  const reservationId   = searchParams.get('reservation_id')
 
   let query = supabase.from('payments').select('*').order('paid_at', { ascending: false })
-  if (from) query = query.gte('reservation_date', from)
-  if (to)   query = query.lte('reservation_date', to)
+  if (from)          query = query.gte('reservation_date', from)
+  if (to)            query = query.lte('reservation_date', to)
+  if (reservationId) query = query.eq('reservation_id', reservationId)
 
   const { data } = await query
   return NextResponse.json(data || [])

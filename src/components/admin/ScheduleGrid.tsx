@@ -185,16 +185,147 @@ function ShiftDayEditModal({
   )
 }
 
+interface PaymentDetail {
+  total_amount: number
+  base_price: number
+  payment_method: string
+  options: Array<{ name: string; price: number }>
+  nomination_type: string | null
+  discount: number
+  cash_received: number | null
+  change_amount: number | null
+  notes: string | null
+  staff_name: string | null
+  menu_name: string | null
+  customer_name: string | null
+}
+
+const PAY_LABELS: Record<string, string> = {
+  cash: '現金', card: 'カード', paypay: 'PayPay', rakuten_pay: '楽天ペイ',
+}
+
+function PaymentDetailModal({ payment, loading, onClose }: {
+  payment: PaymentDetail | null
+  loading: boolean
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-80 rounded-2xl shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="bg-gray-950 text-white px-5 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-400 tracking-widest uppercase mb-0.5">会計詳細</p>
+            <p className="font-bold text-lg">{payment?.customer_name || '匿名'} 様</p>
+            <p className="text-xs text-gray-400 mt-0.5">{payment?.staff_name} · {payment?.menu_name}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-400 hover:text-white"
+          >✕</button>
+        </div>
+
+        <div className="p-5">
+          {loading ? (
+            <div className="py-8 text-center text-gray-400 text-sm">読み込み中...</div>
+          ) : payment ? (
+            <div className="space-y-3">
+              {/* 合計 */}
+              <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between border border-gray-100">
+                <span className="text-sm text-gray-500">合計（税込）</span>
+                <span className="text-2xl font-bold text-gray-900 tabular-nums">
+                  ¥{payment.total_amount.toLocaleString()}
+                </span>
+              </div>
+
+              {/* 内訳 */}
+              <div className="space-y-1.5 text-sm px-1">
+                <div className="flex justify-between text-gray-600">
+                  <span>基本料金</span>
+                  <span>¥{payment.base_price.toLocaleString()}</span>
+                </div>
+                {payment.nomination_type && (
+                  <div className="flex justify-between text-pink-600">
+                    <span>{payment.nomination_type}料</span>
+                    <span>+¥1,650</span>
+                  </div>
+                )}
+                {(payment.options || []).map((o, i) => (
+                  <div key={i} className="flex justify-between text-indigo-600">
+                    <span>{o.name}</span>
+                    <span>+¥{o.price.toLocaleString()}</span>
+                  </div>
+                ))}
+                {payment.discount > 0 && (
+                  <div className="flex justify-between text-amber-600">
+                    <span>割引</span>
+                    <span>−¥{payment.discount.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 支払い情報 */}
+              <div className="border-t border-gray-100 pt-2.5 space-y-1.5 text-sm px-1">
+                <div className="flex justify-between text-gray-600">
+                  <span>支払い方法</span>
+                  <span className="font-semibold">{PAY_LABELS[payment.payment_method] || payment.payment_method}</span>
+                </div>
+                {payment.cash_received != null && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>お預かり</span>
+                    <span>¥{payment.cash_received.toLocaleString()}</span>
+                  </div>
+                )}
+                {payment.change_amount != null && payment.change_amount > 0 && (
+                  <div className="flex justify-between text-green-700 font-semibold">
+                    <span>お釣り</span>
+                    <span>¥{payment.change_amount.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+
+              {payment.notes && (
+                <div className="bg-yellow-50 rounded-lg px-3 py-2 text-xs text-yellow-800 border border-yellow-100">
+                  メモ: {payment.notes}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-gray-400 text-sm">会計データが見つかりません</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ScheduleGrid({
   staff, menus, reservations,
   businessStart, lastCheckin, slotInterval,
   targetDate, offStaffIds, shiftInfoMap,
 }: Props) {
   const router = useRouter()
-  const [editTarget,     setEditTarget]     = useState<ReservationWithDetails | null>(null)
-  const [registerTarget, setRegisterTarget] = useState<ReservationWithDetails | null>(null)
-  const [addTarget,      setAddTarget]      = useState<{ staffId: string; startTime: string } | null>(null)
+  const [editTarget,      setEditTarget]      = useState<ReservationWithDetails | null>(null)
+  const [registerTarget,  setRegisterTarget]  = useState<ReservationWithDetails | null>(null)
+  const [addTarget,       setAddTarget]       = useState<{ staffId: string; startTime: string } | null>(null)
   const [shiftEditTarget, setShiftEditTarget] = useState<ShiftEditTarget | null>(null)
+  const [paymentDetail,   setPaymentDetail]   = useState<PaymentDetail | null>(null)
+  const [paymentLoading,  setPaymentLoading]  = useState(false)
+
+  const handleViewPayment = async (reservationId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setPaymentDetail(null)
+    setPaymentLoading(true)
+    const res = await fetch(`/api/admin/payments?reservation_id=${reservationId}`)
+    const data = await res.json()
+    setPaymentDetail(data[0] || null)
+    setPaymentLoading(false)
+  }
 
   const optionMenus  = menus.filter(m => m.category === 'オプション' && m.active)
   const timeLabels   = generateTimeLabels(businessStart, lastCheckin, slotInterval)
@@ -378,12 +509,17 @@ export default function ScheduleGrid({
                       会計
                     </button>
                   ) : (
-                    <span
-                      className="shrink-0 flex items-center justify-center rounded-md text-[9px] font-bold"
-                      style={{ backgroundColor: '#e5e7eb', color: '#6b7280', width: 30, height: 36 }}
+                    <button
+                      onClick={(e) => handleViewPayment(r.id, e)}
+                      className="shrink-0 flex flex-col items-center justify-center gap-0.5 rounded-md font-bold transition-all hover:brightness-90 active:scale-95 z-30"
+                      style={{ backgroundColor: '#e5e7eb', color: '#6b7280', width: 30, height: 36, fontSize: 9 }}
+                      title="会計詳細を確認"
                     >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                      </svg>
                       済
-                    </span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -396,6 +532,13 @@ export default function ScheduleGrid({
 
   return (
     <>
+      {(paymentDetail !== null || paymentLoading) && (
+        <PaymentDetailModal
+          payment={paymentDetail}
+          loading={paymentLoading}
+          onClose={() => { setPaymentDetail(null); setPaymentLoading(false) }}
+        />
+      )}
       {shiftEditTarget && (
         <ShiftDayEditModal
           target={shiftEditTarget}

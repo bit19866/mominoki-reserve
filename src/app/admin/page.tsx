@@ -3,6 +3,7 @@ import ScheduleGrid from '@/components/admin/ScheduleGrid'
 import DateNavigation from '@/components/admin/DateNavigation'
 import ManualReservationButton from '@/components/admin/ManualReservationButton'
 import QuickRefusalBar from '@/components/admin/QuickRefusalBar'
+import RegisterCheckBar from '@/components/admin/RegisterCheckBar'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
@@ -185,6 +186,9 @@ export default async function AdminPage({ searchParams }: PageProps) {
         {/* 日付ナビゲーション */}
         <DateNavigation currentDate={targetDate} />
       </div>
+
+      {/* ── レジ金確認バー ── */}
+      <RegisterCheckBar key={`regcheck-${targetDate}`} targetDate={targetDate} />
 
       {/* ── 断り記録バー ── */}
       <QuickRefusalBar key={targetDate} targetDate={targetDate} initialRefusals={refusals} />
