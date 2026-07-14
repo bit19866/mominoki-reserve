@@ -118,7 +118,7 @@ function downloadCSV(data: AnalyticsData, period: Period) {
   data.menuBreakdown.forEach(m => lines.push(`${m.name},${m.count},${m.revenue}`))
   lines.push('')
   lines.push('【スタッフ別集計】')
-  lines.push('スタッフ名,指名数,売上（税込）,売上（税抜）,客単価（税込）,客単価（税抜）')
+  lines.push('スタッフ名,施術数,売上（税込）,売上（税抜）,客単価（税込）,客単価（税抜）')
   data.staffBreakdown.forEach(s =>
     lines.push(`${s.name},${s.count},${s.revenue},${s.revenueExTax},${s.avgRevenue},${s.avgRevenueExTax}`)
   )
@@ -180,13 +180,21 @@ function isCurrentPeriod(period: Period, refDate: Date): boolean {
 
 // ─── メインコンポーネント ───────────────────────────────────────────────────────
 
+interface NominationStat {
+  staffName: string
+  personal: number
+  gender: number
+  total: number
+}
+
 export default function AnalyticsDashboard({ initialData }: { initialData: AnalyticsData }) {
-  const [mounted,  setMounted]  = useState(false)
-  const [period,   setPeriod]   = useState<Period>('month')
-  const [refDate,  setRefDate]  = useState<Date>(new Date())
-  const [data,     setData]     = useState<AnalyticsData>(initialData)
-  const [loading,  setLoading]  = useState(false)
-  const [weather,  setWeather]  = useState<WeatherDay[]>([])
+  const [mounted,          setMounted]          = useState(false)
+  const [period,           setPeriod]           = useState<Period>('month')
+  const [refDate,          setRefDate]          = useState<Date>(new Date())
+  const [data,             setData]             = useState<AnalyticsData>(initialData)
+  const [loading,          setLoading]          = useState(false)
+  const [weather,          setWeather]          = useState<WeatherDay[]>([])
+  const [nominationStats,  setNominationStats]  = useState<NominationStat[]>([])
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -195,6 +203,28 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
     if (period === 'year') { setWeather([]); return }
     fetchWeather(data.period.from, data.period.to).then(setWeather)
   }, [data.period.from, data.period.to, period])
+
+  // 指名別集計
+  useEffect(() => {
+    fetch(`/api/admin/payments?from=${data.period.from}&to=${data.period.to}`)
+      .then(r => r.json())
+      .then((payments: Array<{ staff_name?: string; nomination_type?: string }>) => {
+        const map = new Map<string, { personal: number; gender: number }>()
+        payments.forEach(p => {
+          if (!p.nomination_type || !p.staff_name) return
+          const entry = map.get(p.staff_name) || { personal: 0, gender: 0 }
+          if (p.nomination_type === '個人指名') entry.personal++
+          else if (p.nomination_type === '男女指名') entry.gender++
+          map.set(p.staff_name, entry)
+        })
+        setNominationStats(
+          Array.from(map.entries())
+            .map(([staffName, v]) => ({ staffName, personal: v.personal, gender: v.gender, total: v.personal + v.gender }))
+            .sort((a, b) => b.total - a.total)
+        )
+      })
+      .catch(() => {})
+  }, [data.period.from, data.period.to])
 
   const fetchData = useCallback(async (p: Period, d: Date) => {
     setLoading(true)
@@ -691,7 +721,7 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100">
-                      {['スタッフ','指名数','売上（税込）','売上（税抜）','客単価（税込）','客単価（税抜）'].map(h => (
+                      {['スタッフ','施術数','売上（税込）','売上（税抜）','客単価（税込）','客単価（税抜）'].map(h => (
                         <th key={h} className={`py-2 ${h==='スタッフ'?'text-left pr-4':'text-right px-3'} font-semibold text-xs text-gray-400 whitespace-nowrap`}>{h}</th>
                       ))}
                     </tr>
@@ -721,6 +751,44 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
                 </table>
               </div>
             ) : <p className="text-sm text-center py-8 text-gray-400">予約データなし</p>}
+          </div>
+
+          {/* ── 指名別集計 ──────────────────────────────────────────────────── */}
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <h3 className="font-bold text-gray-800 mb-4">指名別集計</h3>
+            {nominationStats.length === 0 ? (
+              <p className="text-sm text-center py-6 text-gray-400">この期間の指名データはありません</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      {['スタッフ','個人指名','男女指名','合計'].map(h => (
+                        <th key={h} className={`py-2 ${h==='スタッフ'?'text-left pr-4':'text-right px-3'} font-semibold text-xs text-gray-400 whitespace-nowrap`}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nominationStats.map((s, i) => (
+                      <tr key={s.staffName} className={i%2===1?'bg-gray-50':''}>
+                        <td className="py-2.5 pr-4 font-medium text-gray-800 whitespace-nowrap"><span className="text-xs text-gray-400 mr-1.5">{i+1}.</span>{s.staffName}</td>
+                        <td className="py-2.5 px-3 text-right font-semibold text-pink-700">{s.personal}件</td>
+                        <td className="py-2.5 px-3 text-right font-semibold text-blue-700">{s.gender}件</td>
+                        <td className="py-2.5 pl-3 text-right font-bold text-gray-800">{s.total}件</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-200 bg-gray-50">
+                      <td className="py-2.5 pr-4 font-bold text-gray-800">合計</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-pink-700">{nominationStats.reduce((s,x)=>s+x.personal,0)}件</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-blue-700">{nominationStats.reduce((s,x)=>s+x.gender,0)}件</td>
+                      <td className="py-2.5 pl-3 text-right font-bold text-gray-800">{nominationStats.reduce((s,x)=>s+x.total,0)}件</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
         </>
       )}

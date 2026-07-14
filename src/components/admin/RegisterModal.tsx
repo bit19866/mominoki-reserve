@@ -62,6 +62,7 @@ export default function RegisterModal({ reservation, optionMenus, onClose, onCom
   const basePrice = reservation.menu?.price || 0
 
   const [options,         setOptions]         = useState<OptionItem[]>([])
+  const [nominationType,  setNominationType]  = useState<null | '個人指名' | '男女指名'>(null)
   const [discount,        setDiscount]        = useState(0)
   const [payMethod,       setPayMethod]       = useState<PaymentMethod>('cash')
   const [cashReceived,    setCashReceived]    = useState('')
@@ -72,8 +73,10 @@ export default function RegisterModal({ reservation, optionMenus, onClose, onCom
   const [submitting,      setSubmitting]      = useState(false)
   const [done,            setDone]            = useState(false)
 
-  const optionTotal = options.reduce((s, o) => s + o.price, 0)
-  const total       = Math.max(0, basePrice + optionTotal - discount)
+  const NOMINATION_FEE = 1650
+  const optionTotal    = options.reduce((s, o) => s + o.price, 0)
+  const nominationFee  = nominationType ? NOMINATION_FEE : 0
+  const total          = Math.max(0, basePrice + optionTotal + nominationFee - discount)
   const received    = parseInt(cashReceived) || 0
   const change      = payMethod === 'cash' ? Math.max(0, received - total) : 0
   const cashOk      = payMethod !== 'cash' || received >= total
@@ -107,6 +110,7 @@ export default function RegisterModal({ reservation, optionMenus, onClose, onCom
       reservation_date: reservation.reservation_date,
       base_price: basePrice,
       options,
+      nomination_type:   nominationType,
       discount,
       total_amount:      total,
       payment_method:    payMethod,
@@ -225,6 +229,38 @@ export default function RegisterModal({ reservation, optionMenus, onClose, onCom
                 </section>
               )}
 
+              {/* 指名料 */}
+              <section>
+                <p className="text-xs font-semibold text-gray-400 tracking-widest uppercase mb-2">指名料</p>
+                <div className="flex gap-2">
+                  {([
+                    { value: '個人指名' as const, label: '個人指名料', color: 'bg-pink-600 border-pink-600' },
+                    { value: '男女指名' as const, label: '男女指名料', color: 'bg-blue-600 border-blue-600' },
+                  ]).map(({ value, label, color }) => (
+                    <button
+                      key={value}
+                      onClick={() => setNominationType(v => v === value ? null : value)}
+                      className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                        nominationType === value
+                          ? `${color} text-white`
+                          : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200'
+                      }`}
+                    >
+                      {label}<br /><span className="text-xs opacity-80">+¥1,650</span>
+                    </button>
+                  ))}
+                </div>
+                {nominationType && (
+                  <div className="mt-2 flex items-center justify-between bg-pink-50 border border-pink-100 rounded-lg px-3 py-2">
+                    <span className="text-sm text-pink-800">{nominationType}料</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-pink-900">+¥1,650</span>
+                      <button onClick={() => setNominationType(null)} className="text-pink-300 hover:text-red-400 transition-colors text-sm">✕</button>
+                    </div>
+                  </div>
+                )}
+              </section>
+
               {/* 割引 */}
               <section>
                 <p className="text-xs font-semibold text-gray-400 tracking-widest uppercase mb-2">割引</p>
@@ -248,7 +284,7 @@ export default function RegisterModal({ reservation, optionMenus, onClose, onCom
               </section>
 
               {/* 内訳 */}
-              {(optionTotal > 0 || discount > 0) && (
+              {(optionTotal > 0 || nominationFee > 0 || discount > 0) && (
                 <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-1.5 border border-gray-100">
                   <div className="flex justify-between text-sm text-gray-500">
                     <span>基本料金</span><span>¥{basePrice.toLocaleString()}</span>
@@ -256,6 +292,11 @@ export default function RegisterModal({ reservation, optionMenus, onClose, onCom
                   {optionTotal > 0 && (
                     <div className="flex justify-between text-sm text-indigo-600">
                       <span>オプション計</span><span>+¥{optionTotal.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {nominationFee > 0 && (
+                    <div className="flex justify-between text-sm text-pink-600">
+                      <span>{nominationType}料</span><span>+¥{nominationFee.toLocaleString()}</span>
                     </div>
                   )}
                   {discount > 0 && (
