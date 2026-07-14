@@ -316,14 +316,16 @@ export default function ScheduleGrid({
   const [shiftEditTarget, setShiftEditTarget] = useState<ShiftEditTarget | null>(null)
   const [paymentDetail,   setPaymentDetail]   = useState<PaymentDetail | null>(null)
   const [paymentLoading,  setPaymentLoading]  = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
 
   const handleViewPayment = async (reservationId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     setPaymentDetail(null)
     setPaymentLoading(true)
+    setShowPaymentModal(true)
     const res = await fetch(`/api/admin/payments?reservation_id=${reservationId}`)
-    const data = await res.json()
-    setPaymentDetail(data[0] || null)
+    const json = await res.json()
+    setPaymentDetail(Array.isArray(json) ? json[0] || null : null)
     setPaymentLoading(false)
   }
 
@@ -532,11 +534,11 @@ export default function ScheduleGrid({
 
   return (
     <>
-      {(paymentDetail !== null || paymentLoading) && (
+      {showPaymentModal && (
         <PaymentDetailModal
           payment={paymentDetail}
           loading={paymentLoading}
-          onClose={() => { setPaymentDetail(null); setPaymentLoading(false) }}
+          onClose={() => { setShowPaymentModal(false); setPaymentDetail(null); setPaymentLoading(false) }}
         />
       )}
       {shiftEditTarget && (

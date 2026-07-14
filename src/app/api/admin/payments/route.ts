@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 async function checkAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -11,8 +11,9 @@ async function checkAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
 // POST: 会計を記録
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
+  const adminDb  = await createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
+  const db = adminDb as any
   const user = await checkAdmin(supabase)
   if (!user) return NextResponse.json({ error: '権限がありません' }, { status: 403 })
 
@@ -81,12 +82,14 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient()
   if (!await checkAdmin(supabase)) return NextResponse.json({ error: '権限がありません' }, { status: 403 })
 
+  const adminDb = await createAdminClient()
   const { searchParams } = new URL(request.url)
   const from            = searchParams.get('from')
   const to              = searchParams.get('to')
   const reservationId   = searchParams.get('reservation_id')
 
-  let query = supabase.from('payments').select('*').order('paid_at', { ascending: false })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query = (adminDb as any).from('payments').select('*').order('paid_at', { ascending: false })
   if (from)          query = query.gte('reservation_date', from)
   if (to)            query = query.lte('reservation_date', to)
   if (reservationId) query = query.eq('reservation_id', reservationId)

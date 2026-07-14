@@ -1,10 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
+  const adminDb = await createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
+  const db = adminDb as any
   const date = request.nextUrl.searchParams.get('date')
   if (!date) return NextResponse.json([])
 
@@ -14,8 +14,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
+  const adminDb  = await createAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
+  const db = adminDb as any
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: '権限がありません' }, { status: 403 })
 
