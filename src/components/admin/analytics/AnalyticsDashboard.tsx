@@ -118,9 +118,9 @@ function downloadCSV(data: AnalyticsData, period: Period) {
   data.menuBreakdown.forEach(m => lines.push(`${m.name},${m.count},${m.revenue}`))
   lines.push('')
   lines.push('【スタッフ別集計】')
-  lines.push('スタッフ名,施術数,売上（税込）,売上（税抜）,客単価（税込）,客単価（税抜）')
+  lines.push('スタッフ名,施術数,次回予約取得数,売上（税込）,売上（税抜）,客単価（税込）,客単価（税抜）')
   data.staffBreakdown.forEach(s =>
-    lines.push(`${s.name},${s.count},${s.revenue},${s.revenueExTax},${s.avgRevenue},${s.avgRevenueExTax}`)
+    lines.push(`${s.name},${s.count},${s.nextVisitCount},${s.revenue},${s.revenueExTax},${s.avgRevenue},${s.avgRevenueExTax}`)
   )
   const csv = '﻿' + lines.join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -138,20 +138,19 @@ const AGE_COLORS   = ['#6366f1','#8b5cf6','#ec4899','#f97316','#eab308','#10b981
 const DOW_COLORS   = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899'] // 日〜土
 
 function groupByMonth(dailySales: AnalyticsData['dailySales']) {
-  const map = new Map<string, { revenue: number; count: number }>()
+  const map = new Map<string, { revenue: number; count: number; refusalCount: number }>()
   dailySales.forEach(d => {
     const key = d.date.slice(0, 7)
-    const e = map.get(key) || { revenue: 0, count: 0 }
-    map.set(key, { revenue: e.revenue + d.revenue, count: e.count + d.count })
+    const e = map.get(key) || { revenue: 0, count: 0, refusalCount: 0 }
+    map.set(key, { revenue: e.revenue + d.revenue, count: e.count + d.count, refusalCount: e.refusalCount + d.refusalCount })
   })
-  return [...map.entries()].map(([date, v]) => ({ date, ...v }))
+  return Array.from(map.entries()).map(([date, v]) => ({ date, ...v }))
 }
 
 function formatLabel(str: string, period: Period): string {
   try {
     const d = str.length === 7 ? parseISO(str + '-01') : parseISO(str)
     if (period === 'year')  return format(d, 'M月', { locale: ja })
-    if (period === 'month') return format(d, 'M/d', { locale: ja })
     return format(d, 'M/d(EEE)', { locale: ja })
   } catch { return str }
 }
@@ -252,16 +251,12 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
   const isCurrent  = isCurrentPeriod(period, refDate)
   const chartData  = period === 'year' ? groupByMonth(data.dailySales) : data.dailySales
   const peakHour   = data.hourlyBreakdown.reduce((a, b) => b.count > a.count ? b : a, data.hourlyBreakdown[0])
-  const peakDow    = [...data.dowBreakdown].sort((a, b) => b.avgCount - a.avgCount)[0]
+  const peakDow    = [...data.dowBreakdown].sort((a, b) => b.count - a.count)[0]
 
   // 天気マップ（date → WeatherDay）
   const weatherMap = new Map(weather.map(w => [w.date, w]))
 
-  // 日次データに天気を結合
-  const chartDataWithWeather = chartData.map(d => ({
-    ...d,
-    occupancyRate: data.occupancy.daily.find(o => o.date === d.date)?.rate ?? 0,
-  }))
+  const chartDataWithWeather = chartData
 
   return (
     <div className="space-y-5">
@@ -331,8 +326,10 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
             <KpiCard label="客単価（税込）"    value={`¥${data.summary.avgRevenue.toLocaleString()}`}        color="purple" icon="person" />
             <KpiCard label="稼働率"            value={`${data.summary.occupancyRate}%`}                      color="indigo" icon="bed"
               note={data.summary.occupancyRate >= 70 ? '高稼働' : data.summary.occupancyRate >= 40 ? '普通' : '空き多め'} />
-            <KpiCard label="リピート率"        value={`${data.summary.repeatRate}%`}                         color="green"  icon="repeat"
-              note={`新規${data.newVsRepeat.newCount} / リピ${data.newVsRepeat.repeatCount}`} />
+            <KpiCard label="新規・リピーター"
+              value={`新規${data.newVsRepeat.newCount}名`}
+              color="green" icon="repeat"
+              note={`リピート${data.newVsRepeat.repeatCount}名 / 計${data.newVsRepeat.newCount + data.newVsRepeat.repeatCount}名`} />
             <KpiCard label="次回予約率"        value={`${data.summary.nextVisitRate}%`}                       color="teal"   icon="next"
               note={`取得${data.nextVisitStat.booked}件`} />
             <KpiCard label="断り件数"          value={`${data.refusalSummary.total}件`}                      color="red"    icon="ban"
@@ -342,7 +339,7 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
           {/* ── 売上推移 + 天気 ─────────────────────────────────────────────── */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800">{period === 'year' ? '月次' : '日次'}売上・予約数・稼働率</h3>
+              <h3 className="font-bold text-gray-800">{period === 'year' ? '月次' : '日次'}売上・予約数・断り数</h3>
               {weather.length > 0 && <span className="text-xs text-sky-500 font-medium">🌡️ 富士市の天気連動</span>}
             </div>
 
@@ -367,17 +364,19 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
                           )}
                           {payload.map((p: any) => (
                             <p key={p.dataKey} style={{ color: p.color }}>
-                              {p.dataKey === 'revenue' ? `売上: ¥${(p.value as number).toLocaleString()}`
-                               : p.dataKey === 'count'  ? `件数: ${p.value}件`
-                               : `稼働率: ${p.value}%`}
+                              {p.dataKey === 'revenue'      ? `売上: ¥${(p.value as number).toLocaleString()}`
+                               : p.dataKey === 'count'       ? `予約数: ${p.value}件`
+                               : p.dataKey === 'refusalCount' ? `断り: ${p.value}件`
+                               : ''}
                             </p>
                           ))}
                         </div>
                       )
                     }}
                   />
-                  <Bar yAxisId="revenue" dataKey="revenue" fill="#fce7f3" stroke="#f9a8d4" strokeWidth={1} radius={[3,3,0,0]} />
-                  <Bar yAxisId="count"   dataKey="count"   fill="#dbeafe" stroke="#93c5fd" strokeWidth={1} radius={[3,3,0,0]} />
+                  <Bar yAxisId="revenue" dataKey="revenue"      fill="#fce7f3" stroke="#f9a8d4" strokeWidth={1} radius={[3,3,0,0]} />
+                  <Bar yAxisId="count"   dataKey="count"        fill="#dbeafe" stroke="#93c5fd" strokeWidth={1} radius={[3,3,0,0]} />
+                  <Bar yAxisId="count"   dataKey="refusalCount" fill="#fee2e2" stroke="#fca5a5" strokeWidth={1} radius={[3,3,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : <div className="h-[220px] bg-gray-50 rounded-lg animate-pulse" />}
@@ -389,47 +388,11 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
 
             <div className="flex gap-4 mt-2 justify-center text-xs text-gray-400">
               <span className="flex items-center gap-1"><span className="w-3 h-2.5 inline-block rounded-sm bg-pink-100 border border-pink-300" />売上</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-2.5 inline-block rounded-sm bg-blue-100 border border-blue-300" />件数</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-2.5 inline-block rounded-sm bg-blue-100 border border-blue-300" />予約数</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-2.5 inline-block rounded-sm bg-red-100 border border-red-300" />断り数</span>
             </div>
           </div>
 
-          {/* ── 稼働率トレンド ───────────────────────────────────────────────── */}
-          {period !== 'today' && (
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-gray-800">稼働率トレンド</h3>
-                <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-1 rounded-full">
-                  平均 {data.summary.occupancyRate}%
-                </span>
-              </div>
-              {mounted ? (
-                <ResponsiveContainer width="100%" height={160}>
-                  <LineChart data={data.occupancy.daily} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="date" tickFormatter={s => formatLabel(s, period)} tick={{ fontSize: 10, fill: '#9ca3af' }} interval="preserveStartEnd" />
-                    <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 10, fill: '#6366f1' }} width={36} />
-                    <Tooltip formatter={(v: number) => [`${v}%`, '稼働率']} labelFormatter={s => formatLabel(s as string, period)} />
-                    <Line type="monotone" dataKey="rate" stroke="#6366f1" strokeWidth={2} dot={false}
-                      activeDot={{ r: 4, fill: '#6366f1' }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : <div className="h-[160px] bg-gray-50 rounded-lg animate-pulse" />}
-              <div className="mt-3 grid grid-cols-3 gap-3 text-xs text-center">
-                <div className="bg-red-50 rounded-lg py-2">
-                  <p className="font-bold text-red-600">{data.occupancy.daily.filter(d => d.rate === 0).length}日</p>
-                  <p className="text-gray-500 mt-0.5">稼働0%</p>
-                </div>
-                <div className="bg-yellow-50 rounded-lg py-2">
-                  <p className="font-bold text-yellow-600">{data.occupancy.daily.filter(d => d.rate > 0 && d.rate < 50).length}日</p>
-                  <p className="text-gray-500 mt-0.5">50%未満</p>
-                </div>
-                <div className="bg-green-50 rounded-lg py-2">
-                  <p className="font-bold text-green-600">{data.occupancy.daily.filter(d => d.rate >= 50).length}日</p>
-                  <p className="text-gray-500 mt-0.5">50%以上</p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* ── 曜日別グラフ ─────────────────────────────────────────────────── */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
@@ -437,7 +400,7 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
               <h3 className="font-bold text-gray-800">曜日別来店パターン</h3>
               {peakDow && (
                 <span className="text-xs bg-amber-100 text-amber-700 font-semibold px-2 py-1 rounded-full">
-                  最多 {peakDow.label}曜日（平均 {peakDow.avgCount}件/週）
+                  最多 {peakDow.label}曜日（計 {peakDow.count}件）
                 </span>
               )}
             </div>
@@ -484,7 +447,7 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
                     style={{ backgroundColor: d.day === peakDow?.day ? '#f59e0b' : DOW_COLORS[d.day] }}>
                     {d.label}
                   </div>
-                  <p className="font-bold text-gray-700">{d.avgCount}</p>
+                  <p className="font-bold text-gray-700">{d.count}</p>
                   <p className="text-gray-400">件</p>
                 </div>
               ))}
@@ -505,11 +468,10 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
                         <Pie data={[
                           { name:'新規',      value: data.newVsRepeat.newCount    },
                           { name:'リピーター', value: data.newVsRepeat.repeatCount },
-                          { name:'未記録',    value: data.newVsRepeat.unknownCount },
                         ].filter(d => d.value > 0)}
                           dataKey="value" cx="50%" cy="50%" innerRadius={42} outerRadius={65} strokeWidth={2}
                         >
-                          <Cell fill="#3b82f6" /><Cell fill="#10b981" /><Cell fill="#d1d5db" />
+                          <Cell fill="#3b82f6" /><Cell fill="#10b981" />
                         </Pie>
                         <Tooltip formatter={(v: number, name: string) => [`${v}件`, name]} />
                       </PieChart>
@@ -517,11 +479,10 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
                   )}
                   <div className="space-y-3 flex-1">
                     {[
-                      { label:'新規',       count: data.newVsRepeat.newCount,     color:'#3b82f6' },
-                      { label:'リピーター', count: data.newVsRepeat.repeatCount,  color:'#10b981' },
-                      { label:'未記録',     count: data.newVsRepeat.unknownCount, color:'#d1d5db' },
+                      { label:'新規',       count: data.newVsRepeat.newCount,    color:'#3b82f6' },
+                      { label:'リピーター', count: data.newVsRepeat.repeatCount, color:'#10b981' },
                     ].map(item => {
-                      const total = data.newVsRepeat.newCount + data.newVsRepeat.repeatCount + data.newVsRepeat.unknownCount
+                      const total = data.newVsRepeat.newCount + data.newVsRepeat.repeatCount
                       const pct   = total > 0 ? Math.round((item.count / total) * 100) : 0
                       return (
                         <div key={item.label}>
@@ -530,7 +491,7 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
                               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
                               {item.label}
                             </span>
-                            <span className="text-gray-500">{item.count}件 ({pct}%)</span>
+                            <span className="text-gray-500">{item.count}名 ({pct}%)</span>
                           </div>
                           <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
                             <div className="h-full rounded-full" style={{ width:`${pct}%`, backgroundColor: item.color }} />
@@ -539,8 +500,8 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
                       )
                     })}
                     <div className="pt-2 border-t border-gray-100">
-                      <p className="text-xs text-gray-400">リピート率（既知）</p>
-                      <p className="text-2xl font-bold text-green-600">{data.newVsRepeat.repeatRate}%</p>
+                      <p className="text-xs text-gray-400">合計</p>
+                      <p className="text-2xl font-bold text-gray-800">{data.newVsRepeat.newCount + data.newVsRepeat.repeatCount}名</p>
                     </div>
                   </div>
                 </div>
@@ -673,6 +634,33 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
                      : data.nextVisitStat.rate >= 40 ? '会計時に次回の提案を積極的に行いましょう。'
                      : '次回予約の声がけを習慣化しましょう。'}
                   </p>
+                </div>
+              </div>
+            )}
+            {/* スタッフ別 次回予約獲得数 */}
+            {data.staffBreakdown.some(s => s.nextVisitCount > 0) && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 mb-3">スタッフ別 次回予約獲得数</p>
+                <div className="space-y-2">
+                  {[...data.staffBreakdown]
+                    .sort((a, b) => b.nextVisitCount - a.nextVisitCount)
+                    .map(s => {
+                      const pct = s.count > 0 ? Math.round((s.nextVisitCount / s.count) * 100) : 0
+                      return (
+                        <div key={s.name}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-medium text-gray-700">{s.name}</span>
+                            <span className="text-gray-500">
+                              <span className="font-bold text-teal-700">{s.nextVisitCount}件取得</span>
+                              <span className="ml-1 text-gray-400">/ 施術{s.count}件 ({pct}%)</span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                            <div className="h-full rounded-full bg-teal-400 transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
                 </div>
               </div>
             )}

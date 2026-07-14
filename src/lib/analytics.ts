@@ -11,10 +11,10 @@ import {
 
 export type Period = 'today' | 'week' | 'month' | 'year'
 
-export interface DailySale    { date: string; revenue: number; count: number }
+export interface DailySale    { date: string; revenue: number; count: number; refusalCount: number }
 export interface GenderStat   { gender: string; label: string; count: number; revenue: number }
 export interface MenuStat     { name: string; count: number; revenue: number }
-export interface StaffStat    { name: string; count: number; revenue: number; revenueExTax: number; avgRevenue: number; avgRevenueExTax: number }
+export interface StaffStat    { name: string; count: number; revenue: number; revenueExTax: number; avgRevenue: number; avgRevenueExTax: number; nextVisitCount: number }
 export interface HourlyStat   { hour: string; label: string; count: number }
 export interface AgeGroupStat { group: string; count: number }
 
@@ -119,7 +119,7 @@ export async function computeAnalytics(
       .lte('reservation_date', toStr)
       .in('status', ['confirmed', 'completed']),
     supabase.from('settings').select('*'),
-    supabase.from('refusals' as any).select('reason').gte('refusal_date', fromStr).lte('refusal_date', toStr),
+    supabase.from('refusals' as any).select('reason, refusal_date').gte('refusal_date', fromStr).lte('refusal_date', toStr),
   ])
 
   const data = (rows || []) as any[]
@@ -130,7 +130,7 @@ export async function computeAnalytics(
   const businessStart = settingsMap['business_start_time'] || '10:00'
   const lastCheckin   = settingsMap['last_checkin_time']   || '23:00'
   const businessMin   = timeToMin(lastCheckin) - timeToMin(businessStart) // 営業時間（分）
-  const maxPerDay     = totalBeds * businessMin  // 1日の最大ベッド稼働分数
+  const maxPerDay     = totalBeds * Math.floor(businessMin / 60)  // 1日の最大施術数（ベッド数 × 営業時間÷60）
 
   // ── Summary ──────────────────────────────────────────
   const totalRevenue      = data.reduce((s, r) => s + (r.menu?.price || 0), 0)
@@ -172,38 +172,33 @@ export async function computeAnalytics(
       count:   e.count + 1,
     })
   })
-  const dailySales = [...dailyMap.entries()]
-    .map(([date, v]) => ({ date, ...v }))
-    .sort((a, b) => a.date.localeCompare(b.date))
 
-  // ── Occupancy rate（稼働率） ─────────────────────────
-  // 1日ごとに occupied_minutes = Σ(end_time - start_time) を計算
-  const occupiedMap = new Map<string, number>()
-  eachDayOfInterval({ start: from, end: to }).forEach(d =>
-    occupiedMap.set(format(d, 'yyyy-MM-dd'), 0)
-  )
-  data.forEach(r => {
-    if (r.start_time && r.end_time) {
-      const startM = timeToMin(String(r.start_time).slice(0, 5))
-      const endM   = timeToMin(String(r.end_time).slice(0, 5))
-      const dur    = Math.max(0, endM - startM)
-      const prev   = occupiedMap.get(r.reservation_date) || 0
-      occupiedMap.set(r.reservation_date, prev + dur)
-    }
+  // 断り件数（日別）
+  const refusalPerDayMap = new Map<string, number>()
+  const refusals = (refusalRows || []) as any[]
+  refusals.forEach(r => {
+    const date = r.refusal_date as string
+    if (date) refusalPerDayMap.set(date, (refusalPerDayMap.get(date) || 0) + 1)
   })
 
-  const occupancyDaily = [...occupiedMap.entries()]
-    .map(([date, occ]) => ({
+  const dailySales = Array.from(dailyMap.entries())
+    .map(([date, v]) => ({ date, ...v, refusalCount: refusalPerDayMap.get(date) || 0 }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  // ── Occupancy rate（稼働率）: 施術件数 ÷ 1日最大施術数 ────────────────
+  const occupancyDaily = Array.from(dailyMap.entries())
+    .map(([date, v]) => ({
       date,
-      rate:  maxPerDay > 0 ? Math.min(100, Math.round((occ / maxPerDay) * 100)) : 0,
-      count: dailyMap.get(date)?.count || 0,
+      rate:  maxPerDay > 0 ? Math.min(100, Math.round((v.count / maxPerDay) * 100)) : 0,
+      count: v.count,
     }))
     .sort((a, b) => a.date.localeCompare(b.date))
 
-  const totalOcc    = [...occupiedMap.values()].reduce((s, v) => s + v, 0)
-  const dayCount    = occupancyDaily.length
-  const maxTotalOcc = maxPerDay * dayCount
-  const occupancyRate = maxTotalOcc > 0 ? Math.min(100, Math.round((totalOcc / maxTotalOcc) * 100)) : 0
+  const totalCount    = data.length
+  const dayCount      = occupancyDaily.length
+  const occupancyRate = (maxPerDay * dayCount) > 0
+    ? Math.min(100, Math.round((totalCount / (maxPerDay * dayCount)) * 100))
+    : 0
 
   const occupancy: OccupancyData = { overall: occupancyRate, daily: occupancyDaily }
 
@@ -288,18 +283,19 @@ export async function computeAnalytics(
     .slice(0, 10)
 
   // ── Staff ─────────────────────────────────────────────
-  const sMap = new Map<string, { count: number; revenue: number; revenueExTax: number }>()
+  const sMap = new Map<string, { count: number; revenue: number; revenueExTax: number; nextVisitCount: number }>()
   data.forEach(r => {
     const name  = r.staff?.name || '不明'
     const price = r.menu?.price || 0
-    const e = sMap.get(name) || { count: 0, revenue: 0, revenueExTax: 0 }
+    const e = sMap.get(name) || { count: 0, revenue: 0, revenueExTax: 0, nextVisitCount: 0 }
     sMap.set(name, {
-      count:        e.count + 1,
-      revenue:      e.revenue + price,
-      revenueExTax: e.revenueExTax + (r.menu?.price_ex_tax ?? 0),
+      count:          e.count + 1,
+      revenue:        e.revenue + price,
+      revenueExTax:   e.revenueExTax + (r.menu?.price_ex_tax ?? 0),
+      nextVisitCount: e.nextVisitCount + (r.next_visit_booked === true ? 1 : 0),
     })
   })
-  const staffBreakdown = [...sMap.entries()]
+  const staffBreakdown = Array.from(sMap.entries())
     .map(([name, v]) => ({
       name,
       count:           v.count,
@@ -307,11 +303,11 @@ export async function computeAnalytics(
       revenueExTax:    v.revenueExTax,
       avgRevenue:      v.count > 0 ? Math.round(v.revenue / v.count) : 0,
       avgRevenueExTax: v.count > 0 ? Math.round(v.revenueExTax / v.count) : 0,
+      nextVisitCount:  v.nextVisitCount,
     }))
     .sort((a, b) => b.count - a.count)
 
   // ── 断り集計 ──────────────────────────────────────────────────────────
-  const refusals = (refusalRows || []) as any[]
   const refusalMap = new Map<string, number>()
   refusals.forEach(r => {
     refusalMap.set(r.reason, (refusalMap.get(r.reason) || 0) + 1)
