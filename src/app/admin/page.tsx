@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import ScheduleGrid from '@/components/admin/ScheduleGrid'
 import DateNavigation from '@/components/admin/DateNavigation'
 import ManualReservationButton from '@/components/admin/ManualReservationButton'
@@ -17,8 +17,10 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const dayOfWeek = new Date(targetDate).getDay()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
-  const [r0, r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
+  const adminDb = await createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = adminDb as any
+  const [r0, r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
     supabase.from('staff').select('*').eq('active', true).order('sort_order'),
     supabase
       .from('reservations')
@@ -32,15 +34,17 @@ export default async function AdminPage({ searchParams }: PageProps) {
     supabase.from('staff_schedule_overrides').select('*').eq('override_date', targetDate),
     supabase.from('menus').select('*').eq('active', true).order('sort_order'),
     db.from('refusals').select('*').eq('refusal_date', targetDate).order('refusal_time'),
+    db.from('payments').select('total_amount, base_price').eq('reservation_date', targetDate),
   ])
-  const staff          = (r0.data || []) as any[]
-  const reservations   = (r1.data || []) as any[]
-  const settings       = (r2.data || []) as any[]
-  const dayOffs        = (r3.data || []) as any[]
+  const staff           = (r0.data || []) as any[]
+  const reservations    = (r1.data || []) as any[]
+  const settings        = (r2.data || []) as any[]
+  const dayOffs         = (r3.data || []) as any[]
   const weeklySchedules = (r4.data || []) as any[]
-  const overrides      = (r5.data || []) as any[]
-  const menus          = (r6.data || []) as any[]
-  const refusals       = (r7.data || []) as any[]
+  const overrides       = (r5.data || []) as any[]
+  const menus           = (r6.data || []) as any[]
+  const refusals        = (r7.data || []) as any[]
+  const payments        = (r8.data || []) as any[]
 
   const settingsMap   = Object.fromEntries(settings.map((s: any) => [s.key, s.value]))
   const businessStart = settingsMap['business_start_time'] || '10:00'
@@ -80,9 +84,9 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const allReservations  = reservations || []
   const completedCount   = allReservations.filter(r => r.status === 'completed').length
   const pendingCount     = allReservations.length - completedCount
-  const completed        = allReservations.filter(r => r.status === 'completed')
-  const totalRevenue     = completed.reduce((s, r) => s + ((r.menu as any)?.price || 0), 0)
-  const totalRevenueEx   = completed.reduce((s, r) => s + ((r.menu as any)?.price_ex_tax ?? 0), 0)
+  // 指名料・オプション・割引込みの実際の売上はpaymentsテーブルから集計
+  const totalRevenue     = payments.reduce((s: number, p: any) => s + (p.total_amount || 0), 0)
+  const totalRevenueEx   = Math.round(totalRevenue / 1.1)
 
   return (
     <div>
