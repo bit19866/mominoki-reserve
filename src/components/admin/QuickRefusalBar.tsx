@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 
-const REASONS = ['満席', 'コースの対応ができない', '男女', '指名のスタッフがいない']
+const REASONS = ['満席', 'コースの対応ができない', '男女', '指名のスタッフがいない', 'ペア断り']
 const MINUTES = ['00', '10', '20', '30', '40', '50']
 
 interface Refusal {
@@ -50,14 +50,19 @@ export default function QuickRefusalBar({ targetDate, initialRefusals }: {
     setSaving(true)
     setPopup(null)
     const time = `${hour}:${minute}`
-    const res = await fetch('/api/admin/refusals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: targetDate, time, reason, notes: '' }),
-    })
-    if (res.ok) {
-      const item = await res.json()
-      setRefusals(prev => [...prev, item].sort((a, b) => a.refusal_time.localeCompare(b.refusal_time)))
+    const isPair = reason === 'ペア断り'
+    const count  = isPair ? 2 : 1
+    const newItems: Refusal[] = []
+    for (let i = 0; i < count; i++) {
+      const res = await fetch('/api/admin/refusals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: targetDate, time, reason, notes: '' }),
+      })
+      if (res.ok) newItems.push(await res.json())
+    }
+    if (newItems.length > 0) {
+      setRefusals(prev => [...prev, ...newItems].sort((a, b) => a.refusal_time.localeCompare(b.refusal_time)))
     }
     setSaving(false)
   }
@@ -82,6 +87,7 @@ export default function QuickRefusalBar({ targetDate, initialRefusals }: {
           <span className="text-xs text-gray-400">時間 → 分 → 理由 の順に押す</span>
         </div>
         <span className="text-sm font-bold text-orange-600">本日 {refusals.length}件</span>
+
       </div>
 
       {/* 時間ボタン */}
@@ -177,9 +183,18 @@ export default function QuickRefusalBar({ targetDate, initialRefusals }: {
       {refusals.length > 0 && (
         <div className="mt-3 pt-3 border-t border-orange-100 flex flex-wrap gap-1.5">
           {refusals.map(r => (
-            <div key={r.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-orange-50 border border-orange-200">
-              <span className="font-mono font-bold text-orange-700">{r.refusal_time.slice(0, 5)}</span>
+            <div key={r.id} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border ${
+              r.reason === 'ペア断り'
+                ? 'bg-purple-50 border-purple-200'
+                : 'bg-orange-50 border-orange-200'
+            }`}>
+              <span className={`font-mono font-bold ${r.reason === 'ペア断り' ? 'text-purple-700' : 'text-orange-700'}`}>
+                {r.refusal_time.slice(0, 5)}
+              </span>
               <span className="text-gray-600">{r.reason}</span>
+              {r.reason === 'ペア断り' && (
+                <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-purple-100 text-purple-600">×1</span>
+              )}
               <button onClick={() => handleDelete(r.id)} className="text-gray-300 hover:text-red-400 ml-0.5">✕</button>
             </div>
           ))}
