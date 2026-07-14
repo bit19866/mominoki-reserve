@@ -123,7 +123,7 @@ export default function RegisterModal({ reservation, optionMenus, onClose, onCom
     })
   }
 
-  // クイック会計済み（金額入力省略）
+  // クイック会計済み（現金受取入力省略）
   const handleQuickDone = async () => {
     await postPayment({
       reservation_id:    reservation.id,
@@ -132,10 +132,11 @@ export default function RegisterModal({ reservation, optionMenus, onClose, onCom
       menu_name:         reservation.menu?.name,
       reservation_date:  reservation.reservation_date,
       base_price:        basePrice,
-      options:           [],
-      discount:          0,
-      total_amount:      basePrice,
-      payment_method:    'cash',
+      options,
+      nomination_type:   nominationType,
+      discount,
+      total_amount:      total,
+      payment_method:    payMethod,
       cash_received:     null,
       change_amount:     null,
       notes:             notes || null,
