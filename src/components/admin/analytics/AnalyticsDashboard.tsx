@@ -206,7 +206,7 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
   // 指名別集計
   useEffect(() => {
     fetch(`/api/admin/payments?from=${data.period.from}&to=${data.period.to}`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error('fetch failed'); return r.json() })
       .then((payments: Array<{ staff_name?: string; nomination_type?: string }>) => {
         const map = new Map<string, { personal: number; gender: number }>()
         payments.forEach(p => {
@@ -229,6 +229,7 @@ export default function AnalyticsDashboard({ initialData }: { initialData: Analy
     setLoading(true)
     const dateStr = format(d, 'yyyy-MM-dd')
     const res  = await fetch(`/api/admin/analytics?period=${p}&date=${dateStr}`)
+    if (!res.ok) { setLoading(false); return }
     const json = await res.json()
     setData(json)
     setLoading(false)

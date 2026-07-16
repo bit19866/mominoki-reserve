@@ -43,6 +43,7 @@ export default function WeeklyScheduleEditor({ staff, defaultStart, defaultEnd }
     const fetchSchedule = async () => {
       try {
         const res = await fetch(`/api/shift-hours?staffId=${staff.id}`)
+        if (!res.ok) return
         const data = await res.json()
         if (data.weeklySchedule && data.weeklySchedule.length > 0) {
           setSchedule((prev) =>
@@ -62,6 +63,8 @@ export default function WeeklyScheduleEditor({ staff, defaultStart, defaultEnd }
             })
           )
         }
+      } catch (e) {
+        console.error('週間シフト取得エラー:', e)
       } finally {
         setLoading(false)
       }
@@ -73,7 +76,7 @@ export default function WeeklyScheduleEditor({ staff, defaultStart, defaultEnd }
     setSaving(dayOfWeek)
     const day = schedule.find((d) => d.dayOfWeek === dayOfWeek)!
 
-    await fetch('/api/shift-hours', {
+    const res = await fetch('/api/shift-hours', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -87,6 +90,10 @@ export default function WeeklyScheduleEditor({ staff, defaultStart, defaultEnd }
     })
 
     setSaving(null)
+    if (!res.ok) {
+      alert('保存に失敗しました。もう一度お試しください。')
+      return
+    }
     setSaved(dayOfWeek)
     setTimeout(() => setSaved(null), 2000)
   }

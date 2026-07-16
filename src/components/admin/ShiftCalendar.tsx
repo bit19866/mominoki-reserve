@@ -134,7 +134,7 @@ export default function ShiftCalendar({
     if (!editing) return
     setSaving(true)
 
-    await fetch('/api/shift-hours', {
+    const res = await fetch('/api/shift-hours', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -147,8 +147,14 @@ export default function ShiftCalendar({
       }),
     })
 
-    // ローカル状態を更新
-    const key = `${editing.staffId}_${editing.date}`
+    setSaving(false)
+
+    if (!res.ok) {
+      alert('保存に失敗しました。もう一度お試しください。')
+      return
+    }
+
+    // APIが成功してからローカル状態を更新
     setLocalOverrides((prev) => {
       const filtered = prev.filter(
         (o) => !(o.staff_id === editing.staffId && o.override_date === editing.date)
@@ -165,13 +171,12 @@ export default function ShiftCalendar({
       ]
     })
 
-    setSaving(false)
     setEditing(null)
   }
 
   // リセット（週間シフトに戻す）
   const handleReset = async (staffId: string, dateStr: string) => {
-    await fetch('/api/shift-hours', {
+    const res = await fetch('/api/shift-hours', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -181,6 +186,10 @@ export default function ShiftCalendar({
         isWorking: null,
       }),
     })
+    if (!res.ok) {
+      alert('リセットに失敗しました。もう一度お試しください。')
+      return
+    }
     setLocalOverrides((prev) =>
       prev.filter((o) => !(o.staff_id === staffId && o.override_date === dateStr))
     )

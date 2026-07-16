@@ -1,11 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { timeToMinutes } from '@/lib/utils'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
 
   // 管理者チェック
   const { data: { user } } = await supabase.auth.getUser()
@@ -20,6 +17,9 @@ export async function POST(request: NextRequest) {
   if (!adminUser) {
     return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 })
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = (await createAdminClient()) as any
 
   const body = await request.json()
   const {

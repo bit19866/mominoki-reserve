@@ -156,11 +156,12 @@ export async function POST(request: NextRequest) {
   if (type === 'override') {
     if (isWorking === null) {
       // 上書きを削除（デフォルトに戻す）
-      await (adminDb as any)
+      const { error } = await (adminDb as any)
         .from('staff_schedule_overrides')
         .delete()
         .eq('staff_id', staffId)
         .eq('override_date', overrideDate)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     } else {
       const { error } = await (adminDb as any)
         .from('staff_schedule_overrides')

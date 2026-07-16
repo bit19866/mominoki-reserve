@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Menu } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -255,8 +255,8 @@ export default function MenuManager({ initialMenus }: Props) {
                 </thead>
                 <tbody>
                   {items.map((menu) => (
-                    <>
-                      <tr key={menu.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <React.Fragment key={menu.id}>
+                    <tr className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="px-4 py-3 font-medium">{menu.name}</td>
                         <td className="px-4 py-3 text-right text-gray-500">
                           {menu.duration_minutes > 0 ? `${menu.duration_minutes}分` : '-'}
@@ -320,7 +320,7 @@ export default function MenuManager({ initialMenus }: Props) {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>

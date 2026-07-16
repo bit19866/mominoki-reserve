@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 // 指定日の出勤情報を取得
@@ -43,19 +43,23 @@ export async function POST(request: NextRequest) {
   }
 
   const { staffId, date, isWorking } = await request.json()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminDb = (await createAdminClient()) as any
 
   if (isWorking) {
     // 出勤 → day_offレコードを削除
-    await supabase
+    const { error } = await adminDb
       .from('staff_day_offs')
       .delete()
       .eq('staff_id', staffId)
       .eq('off_date', date)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   } else {
     // 休み → day_offレコードを追加
-    await supabase
+    const { error } = await adminDb
       .from('staff_day_offs')
       .upsert({ staff_id: staffId, off_date: date })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

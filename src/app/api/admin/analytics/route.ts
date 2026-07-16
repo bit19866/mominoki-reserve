@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { computeAnalytics, Period } from '@/lib/analytics'
 
@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
   const period  = (params.get('period') || 'month') as Period
   const dateStr = params.get('date')  // 例: '2026-03-01'
   const refDate = dateStr ? new Date(dateStr) : undefined
-  const data = await computeAnalytics(supabase, period, refDate)
+  const adminDb = await createAdminClient()
+  const data = await computeAnalytics(adminDb, period, refDate)
 
   return NextResponse.json(data)
 }

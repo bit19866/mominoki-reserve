@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 // ─── 管理者チェック共通処理 ────────────────────────────────────────────────────
@@ -16,11 +16,11 @@ export async function PATCH(
   { params }: { params: { id: string } },
 ) {
   const supabase = await createClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
   if (!(await checkAdmin(supabase))) {
     return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 })
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = (await createAdminClient()) as any
 
   const { id } = params
   const { staffId, menuId, startTime, endTime, customerName, gender, notes, source } =
@@ -92,7 +92,7 @@ export async function DELETE(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (await createAdminClient() as any)
     .from('reservations')
     .update({ status: 'cancelled' })
     .eq('id', params.id)
