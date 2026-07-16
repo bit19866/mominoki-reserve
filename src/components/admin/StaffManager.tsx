@@ -20,7 +20,7 @@ export default function StaffManager({ initialStaff, defaultStart, defaultEnd }:
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
-  const [openShiftId, setOpenShiftId] = useState<string | null>(null)
+  const [openShiftIds, setOpenShiftIds] = useState<Set<string>>(new Set())
   const supabase = createClient()
   const router = useRouter()
 
@@ -106,9 +106,13 @@ export default function StaffManager({ initialStaff, defaultStart, defaultEnd }:
 
                   {/* シフト設定ボタン */}
                   <button
-                    onClick={() => setOpenShiftId(openShiftId === s.id ? null : s.id)}
+                    onClick={() => setOpenShiftIds(prev => {
+                      const next = new Set(prev)
+                      next.has(s.id) ? next.delete(s.id) : next.add(s.id)
+                      return next
+                    })}
                     className={`text-xs px-2 py-0.5 rounded-full font-medium border transition-colors ${
-                      openShiftId === s.id
+                      openShiftIds.has(s.id)
                         ? 'bg-pink-600 text-white border-pink-600'
                         : 'border-gray-200 text-gray-500 hover:border-pink-300 hover:text-pink-600'
                     }`}
@@ -152,7 +156,7 @@ export default function StaffManager({ initialStaff, defaultStart, defaultEnd }:
               </div>
 
               {/* 週間シフトエディタ（開いているときだけ表示） */}
-              {openShiftId === s.id && (
+              {openShiftIds.has(s.id) && (
                 <div className="px-4 pb-4">
                   <WeeklyScheduleEditor
                     staff={s}
