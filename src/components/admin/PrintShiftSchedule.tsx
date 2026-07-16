@@ -117,7 +117,6 @@ function DayBlock({ dateStr, staff, overrides, weeklySchedules, defStart, defEnd
               {h}
             </span>
           ))}
-          {/* 最終ラベル(24:00=0) already included above */}
         </div>
       </div>
 
@@ -213,10 +212,18 @@ export default function PrintShiftSchedule({
     `${monthStr}-${String(i + 1).padStart(2, '0')}`
   )
 
-  // 4日ごとにページに分割
+  // スタッフ数からブロック高さを計算し、1ページに入る日数を最大化
+  const BLOCK_H   = 18 + staff.length * 18 + 4  // 時間ヘッダー + 行 + 枠
+  const GAP       = 5
+  const PAGE_H    = 1060   // A4 印刷エリア高さ概算(px)
+  const HEADER_H  = 52     // ページヘッダー高さ
+  const COLS      = 2
+  const rowsPerPage = Math.max(2, Math.floor((PAGE_H - HEADER_H) / (BLOCK_H + GAP)))
+  const daysPerPage = rowsPerPage * COLS
+
   const pages: string[][] = []
-  for (let i = 0; i < allDates.length; i += 4) {
-    pages.push(allDates.slice(i, i + 4))
+  for (let i = 0; i < allDates.length; i += daysPerPage) {
+    pages.push(allDates.slice(i, i + daysPerPage))
   }
 
   return (
@@ -277,14 +284,15 @@ export default function PrintShiftSchedule({
             </div>
           </div>
 
-          {/* 2×2グリッド */}
+          {/* 動的グリッド（スタッフ数に応じて行数を最大化） */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            gridTemplateRows: 'auto auto',
-            gap: 6,
+            gridTemplateRows: `repeat(${rowsPerPage}, 1fr)`,
+            gap: GAP,
+            flex: 1,
           }}>
-            {[0, 1, 2, 3].map(i => {
+            {Array.from({ length: daysPerPage }, (_, i) => {
               const dateStr = pageDates[i]
               if (!dateStr) return <div key={i} />
               return (
