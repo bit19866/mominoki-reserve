@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import ShiftCalendar from '@/components/admin/ShiftCalendar'
 import { format } from 'date-fns'
 
+export const dynamic = 'force-dynamic'
+
 interface PageProps {
   searchParams: { month?: string }
 }
