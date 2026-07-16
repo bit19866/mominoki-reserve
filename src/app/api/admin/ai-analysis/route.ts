@@ -75,13 +75,18 @@ ${top7days}
 読みやすく、専門用語を避けた文体で書いてください。
 `
 
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 1400,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  const analysis = message.content[0].type === 'text' ? message.content[0].text : ''
+  let analysis = ''
+  try {
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1400,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    analysis = message.content[0].type === 'text' ? message.content[0].text : ''
+  } catch (e) {
+    console.error('AI analysis error:', e)
+    return NextResponse.json({ error: 'AI分析に失敗しました。しばらくしてからお試しください。' }, { status: 500 })
+  }
 
   return NextResponse.json({ analysis })
 }

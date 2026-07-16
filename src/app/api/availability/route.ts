@@ -82,14 +82,21 @@ export async function GET(request: NextRequest) {
     : (allStaff || []).filter((s) => !offStaffIdSet.has(s.id)).map((s) => s.id)
 
   // シフト時間を取得（スタッフごとの出勤時間）
-  const shiftRes = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/shift-hours?date=${date}`,
-    { cache: 'no-store' }
-  )
-  const shiftData = await shiftRes.json()
   const shiftMap: Record<string, { startTime: string; endTime: string; isWorking: boolean }> = {}
-  for (const s of shiftData.shiftInfo || []) {
-    shiftMap[s.staffId] = { startTime: s.startTime, endTime: s.endTime, isWorking: s.isWorking }
+  try {
+    const shiftRes = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL}/api/shift-hours?date=${date}`,
+      { cache: 'no-store' }
+    )
+    if (shiftRes.ok) {
+      const shiftData = await shiftRes.json()
+      for (const s of shiftData.shiftInfo || []) {
+        shiftMap[s.staffId] = { startTime: s.startTime, endTime: s.endTime, isWorking: s.isWorking }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to fetch shift data:', e)
+    // シフト取得失敗時は全スタッフを出勤扱いとして続行
   }
 
   // 全予約取得（ベッド数制限チェック用）
