@@ -57,6 +57,17 @@ export default function ShiftCalendar({
   const [editing, setEditing] = useState<EditState | null>(null)
   const [saving, setSaving] = useState(false)
   const [localOverrides, setLocalOverrides] = useState<Override[]>(overrides)
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null)
+  const [hoveredCol, setHoveredCol] = useState<string | null>(null)
+
+  const getCellBg = (si: number, staffId: string, dateStr: string) => {
+    const isRow = hoveredRow === staffId
+    const isCol = hoveredCol === dateStr
+    if (isRow && isCol) return '#bfdbfe'   // blue-200: 交差セル
+    if (isRow)          return '#eff6ff'   // blue-50:  行ハイライト
+    if (isCol)          return '#fefce8'   // yellow-50: 列ハイライト
+    return si % 2 === 0 ? '#ffffff' : '#f8fafc'
+  }
 
   // 日付の配列を生成
   const dates = Array.from({ length: lastDay }, (_, i) => {
@@ -249,8 +260,10 @@ export default function ShiftCalendar({
                 {dates.map(({ day, dateStr, dayOfWeek }) => (
                   <th
                     key={day}
-                    className={`px-1 py-2 font-medium border-r border-gray-700 text-center ${
-                      dateStr === today ? 'bg-pink-700' : ''
+                    onMouseEnter={() => setHoveredCol(dateStr)}
+                    onMouseLeave={() => setHoveredCol(null)}
+                    className={`px-1 py-2 font-medium border-r border-gray-700 text-center transition-colors ${
+                      dateStr === today ? 'bg-pink-700' : hoveredCol === dateStr ? 'bg-gray-600' : ''
                     }`}
                     style={{ minWidth: 52 }}
                   >
@@ -288,8 +301,8 @@ export default function ShiftCalendar({
                 >
                   {/* スタッフ名 */}
                   <td
-                    className="sticky left-0 z-10 px-3 py-2 font-bold text-gray-800 border-r border-gray-200 border-b"
-                    style={{ background: si % 2 === 0 ? 'white' : '#f9fafb' }}
+                    className="sticky left-0 z-10 px-3 py-2 font-bold text-gray-800 border-r border-gray-200 border-b transition-colors"
+                    style={{ background: hoveredRow === s.id ? '#dbeafe' : (si % 2 === 0 ? 'white' : '#f8fafc') }}
                   >
                     {s.name}
                   </td>
@@ -304,10 +317,12 @@ export default function ShiftCalendar({
                       <td
                         key={day}
                         onClick={() => handleCellClick(s.id, dateStr, dayOfWeek)}
-                        className={`border-r border-b border-gray-100 text-center cursor-pointer transition-all hover:ring-2 hover:ring-pink-300 hover:z-10 relative ${
+                        onMouseEnter={() => { setHoveredRow(s.id); setHoveredCol(dateStr) }}
+                        onMouseLeave={() => { setHoveredRow(null); setHoveredCol(null) }}
+                        className={`border-r border-b border-gray-100 text-center cursor-pointer transition-colors relative ${
                           isToday ? 'ring-1 ring-pink-400' : ''
                         }`}
-                        style={{ minWidth: 52, height: 48, padding: '2px' }}
+                        style={{ minWidth: 52, height: 48, padding: '2px', backgroundColor: getCellBg(si, s.id, dateStr) }}
                       >
                         {info.isWorking ? (
                           <div

@@ -444,7 +444,11 @@ export default function ScheduleGrid({
           {timeLabels.map((time, i) => (
             <div key={time} className="absolute top-0 bottom-0" style={{
               left: i * CELL_WIDTH,
-              borderLeft: `1px solid ${time.endsWith(':00') ? '#d1d5db' : '#f3f4f6'}`,
+              borderLeft: `1px solid ${
+                time.endsWith(':00') ? '#9ca3af' :
+                time.endsWith(':30') ? '#d1d5db' :
+                '#e5e7eb'
+              }`,
             }} />
           ))}
 
@@ -605,15 +609,23 @@ export default function ScheduleGrid({
                 <span className="text-xs font-medium text-gray-400">スタッフ</span>
               </div>
               {timeLabels.map((time) => (
-                <div key={time} className="shrink-0 flex items-center justify-center"
+                <div key={time} className="shrink-0 flex flex-col items-center justify-end pb-1"
                   style={{
                     width: CELL_WIDTH, height: 44,
                     borderRight: `1px solid ${time.endsWith(':00') ? '#374151' : '#1f2937'}`,
                   }}>
                   {time.endsWith(':00') ? (
-                    <span className="text-xs font-bold text-white">{time}</span>
+                    <>
+                      <span className="w-px h-2 bg-gray-400 block mb-0.5" />
+                      <span className="text-[10px] font-bold text-white leading-none">{time.slice(0,2)}</span>
+                    </>
+                  ) : time.endsWith(':30') ? (
+                    <>
+                      <span className="w-px h-1.5 bg-gray-500 block mb-0.5" />
+                      <span className="text-[9px] text-gray-500 leading-none">30</span>
+                    </>
                   ) : (
-                    <span className="w-1 h-1 rounded-full bg-gray-600 block" />
+                    <span className="w-px h-1 bg-gray-600 block" />
                   )}
                 </div>
               ))}
