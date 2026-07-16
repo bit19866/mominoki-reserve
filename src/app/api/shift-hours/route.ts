@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 const DAYS = ['日', '月', '火', '水', '木', '金', '土']
@@ -134,11 +134,12 @@ export async function POST(request: NextRequest) {
     .from('admin_users').select('user_id').eq('user_id', user.id).single()
   if (!adminUser) return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 })
 
+  const adminDb = await createAdminClient()
   const body = await request.json()
   const { type, staffId, dayOfWeek, isWorking, startTime, endTime, overrideDate } = body
 
   if (type === 'weekly') {
-    const { error } = await supabase
+    const { error } = await (adminDb as any)
       .from('staff_weekly_schedule')
       .upsert({
         staff_id: staffId,
@@ -155,13 +156,13 @@ export async function POST(request: NextRequest) {
   if (type === 'override') {
     if (isWorking === null) {
       // 上書きを削除（デフォルトに戻す）
-      await supabase
+      await (adminDb as any)
         .from('staff_schedule_overrides')
         .delete()
         .eq('staff_id', staffId)
         .eq('override_date', overrideDate)
     } else {
-      const { error } = await supabase
+      const { error } = await (adminDb as any)
         .from('staff_schedule_overrides')
         .upsert({
           staff_id: staffId,
