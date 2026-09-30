@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   const staffName = (reservation.staff as any)?.name || 'おまかせ'
   const priceStr = formatPrice(totalPrice)
 
-  await resend.emails.send({
+  try { await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || 'noreply@example.com',
     to: reservation.customer_email,
     subject: `【予約確認】${dateStr} ${startTime}〜 りらくもみのき富士錦町店`,
@@ -85,7 +85,10 @@ export async function POST(request: NextRequest) {
         </div>
       </div>
     `,
-  })
+  }) } catch (e) {
+    console.error('Failed to send email:', e)
+    return NextResponse.json({ error: 'メール送信失敗' }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }

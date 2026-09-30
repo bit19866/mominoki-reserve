@@ -18,7 +18,7 @@ export default async function ReservePage() {
     .eq('user_id', user.id)
     .eq('reservation_date', today)
     .eq('status', 'confirmed')
-    .single()
+    .maybeSingle()
 
   // メニュー・スタッフ・設定を取得
   const [{ data: menus }, { data: staff }, { data: settings }, { data: profile }] =

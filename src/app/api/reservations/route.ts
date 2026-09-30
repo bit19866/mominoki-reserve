@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     .eq('user_id', userId)
     .eq('reservation_date', reservationDate)
     .eq('status', 'confirmed')
-    .single()
+    .maybeSingle()
 
   if (existingToday) {
     return NextResponse.json({ error: '1日1回のご予約となります' }, { status: 409 })
@@ -132,7 +132,14 @@ export async function POST(request: NextRequest) {
       start_time: startTime,
       end_time: endTime,
       status: 'confirmed',
+<<<<<<< HEAD
       customer_email: user.email,
+=======
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: customerPhone || null,
+      payment_method: paymentMethod === 'online' ? 'online' : 'cash',
+>>>>>>> origin/main
     })
     .select()
     .single()

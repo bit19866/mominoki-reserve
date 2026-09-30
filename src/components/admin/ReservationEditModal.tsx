@@ -26,12 +26,13 @@ interface Props {
   lastCheckin: string
   slotInterval: number
   onClose: () => void
+  onRegister?: () => void
 }
 
 export default function ReservationEditModal({
   reservation, staff, menus,
   businessStart, lastCheckin, slotInterval,
-  onClose,
+  onClose, onRegister,
 }: Props) {
   const router = useRouter()
 
@@ -127,15 +128,30 @@ export default function ReservationEditModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
 
         {/* ヘッダー */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl">
-          <div>
-            <h2 className="font-bold text-gray-900 text-lg">予約を編集・削除</h2>
-            <p className="text-sm text-gray-500">{reservation.reservation_date}</p>
+        <div className="sticky top-0 bg-white rounded-t-2xl border-b border-gray-200 z-10">
+          <div className="flex items-center justify-between px-6 py-4">
+            <div>
+              <h2 className="font-bold text-gray-900 text-lg">予約を編集・削除</h2>
+              <p className="text-sm text-gray-500">{reservation.reservation_date}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"
+            >✕</button>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"
-          >✕</button>
+          {onRegister && (
+            <div className="px-6 pb-4">
+              <button
+                onClick={() => { onClose(); onRegister() }}
+                className="w-full py-4 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-bold text-lg rounded-xl shadow-md transition-all flex items-center justify-center gap-3"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                会計する
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="p-6 space-y-5">

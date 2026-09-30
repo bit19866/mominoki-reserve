@@ -12,32 +12,30 @@ export default async function AdminLayout({
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/auth/login?redirectTo=/admin')
+    redirect('/login')
   }
 
   const { data: adminUser } = await supabase
     .from('admin_users')
-    .select('user_id')
+    .select('user_id, role')
     .eq('user_id', user.id)
-    .single()
+    .single() as { data: { user_id: string; role: string } | null }
 
   if (!adminUser) {
-    redirect('/')
+    redirect('/login')
   }
+
+  const isOwner = adminUser.role === 'owner'
 
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-gray-900 text-white">
         <div className="px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-gray-400 hover:text-white text-sm">
-              🌿 店舗サイト
-            </Link>
-            <span className="text-gray-600">/</span>
-            <span className="font-bold">管理画面</span>
+            <span className="font-bold text-white">りらくもみのき 管理画面</span>
           </div>
           <form action="/auth/signout" method="post">
-            <button className="text-sm text-gray-400 hover:text-white">
+            <button className="text-sm text-gray-400 hover:text-white transition-colors">
               ログアウト
             </button>
           </form>
@@ -45,7 +43,7 @@ export default async function AdminLayout({
       </header>
 
       <div className="flex">
-        <AdminNav />
+        <AdminNav isOwner={isOwner} />
         <main className="flex-1 p-6 overflow-auto">
           {children}
         </main>

@@ -23,14 +23,20 @@ export default function SettingsManager({ initialSettings }: Props) {
   const handleSave = async () => {
     setSaving(true)
     const entries = Object.entries(settings)
+    let hasError = false
 
     for (const [key, value] of entries) {
-      await supabase
+      const { error } = await supabase
         .from('settings')
         .upsert({ key, value, updated_at: new Date().toISOString() })
+      if (error) { hasError = true; break }
     }
 
     setSaving(false)
+    if (hasError) {
+      alert('設定の保存に失敗しました。もう一度お試しください。')
+      return
+    }
     setSaved(true)
     router.refresh()
     setTimeout(() => setSaved(false), 3000)

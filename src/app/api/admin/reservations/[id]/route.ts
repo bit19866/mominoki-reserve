@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 // ─── 管理者チェック共通処理 ────────────────────────────────────────────────────
@@ -19,6 +19,8 @@ export async function PATCH(
   if (!(await checkAdmin(supabase))) {
     return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 })
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = (await createAdminClient()) as any
 
   const { id } = params
   const { staffId, menuId, startTime, endTime, customerName, gender, notes, source } =
@@ -29,7 +31,7 @@ export async function PATCH(
   }
 
   // 編集対象の予約日を取得
-  const { data: current } = await supabase
+  const { data: current } = await db
     .from('reservations')
     .select('reservation_date')
     .eq('id', id)
@@ -40,11 +42,11 @@ export async function PATCH(
   }
 
   // スタッフの重複チェック（自分自身を除く）
-  const { data: conflict } = await supabase
+  const { data: conflict } = await db
     .from('reservations')
     .select('id')
     .eq('staff_id', staffId)
-    .eq('reservation_date', current.reservation_date)
+    .eq('reservation_date', (current as any).reservation_date)
     .eq('status', 'confirmed')
     .neq('id', id)
     .lt('start_time', endTime)
@@ -57,7 +59,7 @@ export async function PATCH(
     )
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('reservations')
     .update({
       staff_id:      staffId,
@@ -89,7 +91,8 @@ export async function DELETE(
     return NextResponse.json({ error: '管理者権限が必要です' }, { status: 403 })
   }
 
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (await createAdminClient() as any)
     .from('reservations')
     .update({ status: 'cancelled' })
     .eq('id', params.id)

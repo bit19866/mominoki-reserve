@@ -57,6 +57,17 @@ export default function ShiftCalendar({
   const [editing, setEditing] = useState<EditState | null>(null)
   const [saving, setSaving] = useState(false)
   const [localOverrides, setLocalOverrides] = useState<Override[]>(overrides)
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null)
+  const [hoveredCol, setHoveredCol] = useState<string | null>(null)
+
+  const getCellBg = (si: number, staffId: string, dateStr: string) => {
+    const isRow = hoveredRow === staffId
+    const isCol = hoveredCol === dateStr
+    if (isRow && isCol) return '#bfdbfe'   // blue-200: 交差セル
+    if (isRow)          return '#eff6ff'   // blue-50:  行ハイライト
+    if (isCol)          return '#fefce8'   // yellow-50: 列ハイライト
+    return si % 2 === 0 ? '#ffffff' : '#f8fafc'
+  }
 
   // 日付の配列を生成
   const dates = Array.from({ length: lastDay }, (_, i) => {
@@ -123,7 +134,7 @@ export default function ShiftCalendar({
     if (!editing) return
     setSaving(true)
 
-    await fetch('/api/shift-hours', {
+    const res = await fetch('/api/shift-hours', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -136,8 +147,14 @@ export default function ShiftCalendar({
       }),
     })
 
-    // ローカル状態を更新
-    const key = `${editing.staffId}_${editing.date}`
+    setSaving(false)
+
+    if (!res.ok) {
+      alert('保存に失敗しました。もう一度お試しください。')
+      return
+    }
+
+    // APIが成功してからローカル状態を更新
     setLocalOverrides((prev) => {
       const filtered = prev.filter(
         (o) => !(o.staff_id === editing.staffId && o.override_date === editing.date)
@@ -154,13 +171,12 @@ export default function ShiftCalendar({
       ]
     })
 
-    setSaving(false)
     setEditing(null)
   }
 
   // リセット（週間シフトに戻す）
   const handleReset = async (staffId: string, dateStr: string) => {
-    await fetch('/api/shift-hours', {
+    const res = await fetch('/api/shift-hours', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -170,6 +186,10 @@ export default function ShiftCalendar({
         isWorking: null,
       }),
     })
+    if (!res.ok) {
+      alert('リセットに失敗しました。もう一度お試しください。')
+      return
+    }
     setLocalOverrides((prev) =>
       prev.filter((o) => !(o.staff_id === staffId && o.override_date === dateStr))
     )
@@ -204,6 +224,17 @@ export default function ShiftCalendar({
         >
           翌月 →
         </button>
+        <a
+          href={`/print/shifts?month=${monthStr}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded-lg hover:bg-gray-700"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          シフト表印刷
+        </a>
       </div>
 
       {/* 凡例 */}
@@ -238,8 +269,10 @@ export default function ShiftCalendar({
                 {dates.map(({ day, dateStr, dayOfWeek }) => (
                   <th
                     key={day}
-                    className={`px-1 py-2 font-medium border-r border-gray-700 text-center ${
-                      dateStr === today ? 'bg-pink-700' : ''
+                    onMouseEnter={() => setHoveredCol(dateStr)}
+                    onMouseLeave={() => setHoveredCol(null)}
+                    className={`px-1 py-2 font-medium border-r border-gray-700 text-center transition-colors ${
+                      dateStr === today ? 'bg-pink-700' : hoveredCol === dateStr ? 'bg-gray-600' : ''
                     }`}
                     style={{ minWidth: 52 }}
                   >
@@ -277,8 +310,8 @@ export default function ShiftCalendar({
                 >
                   {/* スタッフ名 */}
                   <td
-                    className="sticky left-0 z-10 px-3 py-2 font-bold text-gray-800 border-r border-gray-200 border-b"
-                    style={{ background: si % 2 === 0 ? 'white' : '#f9fafb' }}
+                    className="sticky left-0 z-10 px-3 py-2 font-bold text-gray-800 border-r border-gray-200 border-b transition-colors"
+                    style={{ background: hoveredRow === s.id ? '#dbeafe' : (si % 2 === 0 ? 'white' : '#f8fafc') }}
                   >
                     {s.name}
                   </td>
@@ -293,10 +326,12 @@ export default function ShiftCalendar({
                       <td
                         key={day}
                         onClick={() => handleCellClick(s.id, dateStr, dayOfWeek)}
-                        className={`border-r border-b border-gray-100 text-center cursor-pointer transition-all hover:ring-2 hover:ring-pink-300 hover:z-10 relative ${
+                        onMouseEnter={() => { setHoveredRow(s.id); setHoveredCol(dateStr) }}
+                        onMouseLeave={() => { setHoveredRow(null); setHoveredCol(null) }}
+                        className={`border-r border-b border-gray-100 text-center cursor-pointer transition-colors relative ${
                           isToday ? 'ring-1 ring-pink-400' : ''
                         }`}
-                        style={{ minWidth: 52, height: 48, padding: '2px' }}
+                        style={{ minWidth: 52, height: 48, padding: '2px', backgroundColor: getCellBg(si, s.id, dateStr) }}
                       >
                         {info.isWorking ? (
                           <div

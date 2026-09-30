@@ -37,8 +37,11 @@ export default function ShiftOverridePanel({ staff, targetDate, defaultStart, de
     setLoading(true)
     try {
       const res = await fetch(`/api/shift-hours?date=${targetDate}`)
+      if (!res.ok) return
       const data = await res.json()
       setShifts(data.shiftInfo || [])
+    } catch (e) {
+      console.error('シフト取得エラー:', e)
     } finally {
       setLoading(false)
     }
@@ -59,7 +62,7 @@ export default function ShiftOverridePanel({ staff, targetDate, defaultStart, de
 
   const handleSave = async (staffId: string) => {
     setSaving(true)
-    await fetch('/api/shift-hours', {
+    const res = await fetch('/api/shift-hours', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -72,12 +75,16 @@ export default function ShiftOverridePanel({ staff, targetDate, defaultStart, de
       }),
     })
     setSaving(false)
+    if (!res.ok) {
+      alert('保存に失敗しました。もう一度お試しください。')
+      return
+    }
     setEditingId(null)
     await fetchShifts()
   }
 
   const handleReset = async (staffId: string) => {
-    await fetch('/api/shift-hours', {
+    const res = await fetch('/api/shift-hours', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -87,6 +94,10 @@ export default function ShiftOverridePanel({ staff, targetDate, defaultStart, de
         isWorking: null,
       }),
     })
+    if (!res.ok) {
+      alert('リセットに失敗しました。もう一度お試しください。')
+      return
+    }
     setEditingId(null)
     await fetchShifts()
   }
