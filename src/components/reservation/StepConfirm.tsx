@@ -28,10 +28,6 @@ export default function StepConfirm({
     (reservation.menu?.price || 0) + (reservation.staff ? 1650 : 0)
 
   const handleSubmit = async () => {
-    if (!reservation.customerName.trim()) {
-      setError('お名前を入力してください')
-      return
-    }
     setLoading(true)
     setError(null)
 
@@ -46,9 +42,7 @@ export default function StepConfirm({
           reservationDate: reservation.date,
           startTime: reservation.time,
           endTime: reservation.endTime,
-          customerName: reservation.customerName,
-          customerEmail: userEmail,
-          customerPhone: reservation.customerPhone,
+          paymentMethod,
         }),
       })
 
@@ -106,37 +100,6 @@ export default function StepConfirm({
             <dd className="font-bold text-pink-600 text-base">{formatPrice(totalPrice)}</dd>
           </div>
         </dl>
-      </div>
-
-      {/* お客様情報 */}
-      <div className="card p-5 mb-5">
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">お客様情報</h3>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              お名前 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={reservation.customerName}
-              onChange={(e) => onChange({ customerName: e.target.value })}
-              placeholder="山田 花子"
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              電話番号
-            </label>
-            <input
-              type="tel"
-              value={reservation.customerPhone}
-              onChange={(e) => onChange({ customerPhone: e.target.value })}
-              placeholder="090-1234-5678"
-              className="input-field"
-            />
-          </div>
-        </div>
       </div>
 
       {error && (

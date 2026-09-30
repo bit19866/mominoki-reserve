@@ -15,8 +15,6 @@ export interface ReservationState {
   staff: Staff | null
   time: string | null
   endTime: string | null
-  customerName: string
-  customerPhone: string
 }
 
 interface Props {
@@ -43,8 +41,6 @@ export default function ReservationWizard({ menus, staff, settings, user, profil
     staff: null,
     time: null,
     endTime: null,
-    customerName: profile?.full_name || '',
-    customerPhone: profile?.phone || '',
   })
   const [completedReservationId, setCompletedReservationId] = useState<string | null>(null)
 

@@ -18,9 +18,7 @@ export async function POST(request: NextRequest) {
     reservationDate,
     startTime,
     endTime,
-    customerName,
-    customerEmail,
-    customerPhone,
+    paymentMethod,
   } = body
 
   if (userId !== user.id) {
@@ -134,9 +132,7 @@ export async function POST(request: NextRequest) {
       start_time: startTime,
       end_time: endTime,
       status: 'confirmed',
-      customer_name: customerName,
-      customer_email: customerEmail,
-      customer_phone: customerPhone || null,
+      customer_email: user.email,
     })
     .select()
     .single()
