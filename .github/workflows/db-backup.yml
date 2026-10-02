@@ -1,0 +1,39 @@
+name: 日次DBバックアップ
+
+on:
+  schedule:
+    - cron: '0 17 * * *'  # 毎日 JST 02:00（UTC 17:00）
+  workflow_dispatch:       # 手動実行も可能
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: PostgreSQLクライアントをインストール
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y postgresql-client
+
+      - name: バックアップ作成
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          DATE=$(TZ=Asia/Tokyo date +%Y%m%d_%H%M%S)
+          FILENAME="backup_${DATE}.sql"
+          pg_dump "$DATABASE_URL" \
+            --no-owner \
+            --no-acl \
+            --format=plain \
+            > "$FILENAME"
+          SIZE=$(wc -c < "$FILENAME")
+          echo "✅ バックアップ完了: $FILENAME (${SIZE} bytes)"
+
+      - name: GitHubにアーティファクトとして保存（30日間保持）
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_number }}
+          path: backup_*.sql
+          retention-days: 30
+          compression-level: 9
